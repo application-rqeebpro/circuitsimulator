@@ -16,6 +16,9 @@ export type ComponentType =
   | 'fuse'             // فيوز حماية
   | 'diode'            // دايود سيليكون
   | 'led'              // دايود مشع للضوء
+  | 'transistor_npn'   // ترانزستور NPN (BC547 / 2N2222)
+  | 'transistor_pnp'   // ترانزستور PNP (BC557 / 2N3906)
+  | 'board_green'      // لوحة تجارب إلكترونية خضراء
   | 'capacitor'        // مكثف كهربائي (إلكتروليتي / سيراميك / فيلم / فائق)
   | 'inductor'         // ملف حثي
   | 'ammeter'          // مقياس تيار رقمي
@@ -467,6 +470,44 @@ export function solveCircuit(
         addConductance(nA, nB, 1 / 150);
         break;
       }
+      case 'transistor_npn': {
+        const nB = getNodeOfTerminal(el.id, 't1');
+        const nC = getNodeOfTerminal(el.id, 't2');
+        const nE = getNodeOfTerminal(el.id, 't3');
+        // Base-emitter diode forward conductance
+        addConductance(nB, nE, 1 / 200);
+        // If base is tied to a positive node distinct from emitter, transistor conducts
+        const isBaseDriven = nB > 0 && nB !== nE;
+        const rCE = isBaseDriven ? 2 : 1e7;
+        addConductance(nC, nE, 1 / rCE);
+        break;
+      }
+      case 'transistor_pnp': {
+        const nB = getNodeOfTerminal(el.id, 't1');
+        const nC = getNodeOfTerminal(el.id, 't2');
+        const nE = getNodeOfTerminal(el.id, 't3');
+        addConductance(nE, nB, 1 / 200);
+        const isBaseDriven = nB >= 0 && nB !== nE;
+        const rEC = isBaseDriven ? 2 : 1e7;
+        addConductance(nE, nC, 1 / rEC);
+        break;
+      }
+      case 'board_green': {
+        // Internal tie-point buses on green electronics experiment board
+        const n1 = getNodeOfTerminal(el.id, 't1');
+        const n2 = getNodeOfTerminal(el.id, 't2');
+        const n3 = getNodeOfTerminal(el.id, 't3');
+        const n4 = getNodeOfTerminal(el.id, 't4');
+        const n5 = getNodeOfTerminal(el.id, 't5');
+        const n6 = getNodeOfTerminal(el.id, 't6');
+        const n7 = getNodeOfTerminal(el.id, 't7');
+        const n8 = getNodeOfTerminal(el.id, 't8');
+        addConductance(n1, n2, 1 / 1e-3);
+        addConductance(n3, n4, 1 / 1e-3);
+        addConductance(n5, n6, 1 / 1e-3);
+        addConductance(n7, n8, 1 / 1e-3);
+        break;
+      }
       case 'capacitor': {
         // DC steady state: capacitor acts as open circuit (1e9 Ω)
         addConductance(nA, nB, 1 / 1e9);
@@ -778,6 +819,228 @@ export function solveCircuit(
       oscilloscopes,
     },
   };
+}
+
+/**
+ * Calculate Thévenin Equivalent Resistance between two terminals in the circuit
+ * Used by the Digital Multimeter in Ohmmeter (Ω) and Continuity (•)))) modes
+ */
+export function calculateTheveninResistance(
+  elements: CircuitElement[],
+  wires: Wire[],
+  fromCompId: string,
+  fromTermId: string,
+  toCompId: string,
+  toTermId: string
+): number {
+  if (fromCompId === toCompId && fromTermId === toTermId) return 0;
+
+  const ds = new DisjointSet();
+  const terminalKey = (compId: string, termId: string) => `${compId}:${termId}`;
+
+  elements.forEach(el => {
+    el.terminals.forEach(t => {
+      ds.find(terminalKey(el.id, t.id));
+    });
+  });
+
+  wires.forEach(w => {
+    ds.union(terminalKey(w.fromCompId, w.fromTermId), terminalKey(w.toCompId, w.toTermId));
+  });
+
+  const rootA = ds.find(terminalKey(fromCompId, fromTermId));
+  const rootB = ds.find(terminalKey(toCompId, toTermId));
+
+  if (rootA === rootB) {
+    return 0; // Short circuit between probes
+  }
+
+  // Quick single resistor check
+  const directResistor = elements.find(
+    e => (e.type === 'resistor' || e.type === 'potentiometer' || e.type === 'lamp') &&
+      ((ds.find(terminalKey(e.id, e.terminals[0]?.id || 't1')) === rootA && ds.find(terminalKey(e.id, e.terminals[1]?.id || 't2')) === rootB) ||
+       (ds.find(terminalKey(e.id, e.terminals[0]?.id || 't1')) === rootB && ds.find(terminalKey(e.id, e.terminals[1]?.id || 't2')) === rootA))
+  );
+
+  const netRepresentatives = new Set<string>();
+  elements.forEach(el => {
+    el.terminals.forEach(t => {
+      netRepresentatives.add(ds.find(terminalKey(el.id, t.id)));
+    });
+  });
+
+  // Build connectivity graph to check for complete path
+  const graph: Record<string, { neighborNet: string; resistance: number }[]> = {};
+  Array.from(netRepresentatives).forEach(net => {
+    graph[net] = [];
+  });
+
+  elements.forEach(el => {
+    if (el.terminals.length >= 2) {
+      const net1 = ds.find(terminalKey(el.id, el.terminals[0].id));
+      const net2 = ds.find(terminalKey(el.id, el.terminals[1].id));
+      if (net1 !== net2) {
+        let r = 1e9;
+        if (el.type === 'resistor') r = el.value || 1000;
+        else if (el.type === 'potentiometer') r = el.value * (el.state?.potentiometerRatio ?? 0.5);
+        else if (el.type === 'lamp') r = el.value || 50;
+        else if (el.type === 'switch') r = el.state?.isOpen ? 1e9 : 1e-4;
+        else if (el.type === 'fuse') r = el.state?.isBlown ? 1e9 : 1e-4;
+        else if (el.type === 'ammeter' || el.type === 'board_green') r = 1e-4;
+        else if (el.type === 'battery' || el.type === 'dc_power_supply') r = el.internalResistance || 1e-4;
+        if (graph[net1] && graph[net2]) {
+          graph[net1].push({ neighborNet: net2, resistance: r });
+          graph[net2].push({ neighborNet: net1, resistance: r });
+        }
+      }
+    }
+  });
+
+  const visited = new Set<string>();
+  const queue = [rootA];
+  visited.add(rootA);
+  let pathExists = false;
+  while (queue.length > 0) {
+    const curr = queue.shift()!;
+    if (curr === rootB) {
+      pathExists = true;
+      break;
+    }
+    for (const edge of (graph[curr] || [])) {
+      if (!visited.has(edge.neighborNet) && edge.resistance < 1e7) {
+        visited.add(edge.neighborNet);
+        queue.push(edge.neighborNet);
+      }
+    }
+  }
+
+  if (!pathExists) {
+    return Infinity; // Open circuit
+  }
+
+  if (directResistor) {
+    const parallelCount = (graph[rootA] || []).filter(e => e.neighborNet === rootB).length;
+    if (parallelCount === 1 && (graph[rootA] || []).length === 1) {
+      return directResistor.value || 1000;
+    }
+  }
+
+  // Full MNA passive test
+  const allNets = Array.from(netRepresentatives);
+  const netToIndex: Record<string, number> = { [rootB]: 0 };
+  let nodeCount = 1;
+  allNets.forEach(net => {
+    if (net !== rootB) {
+      netToIndex[net] = nodeCount++;
+    }
+  });
+
+  const N = nodeCount - 1;
+  if (N <= 0) return 0;
+
+  const G: number[][] = Array.from({ length: N }, () => new Array(N).fill(0));
+  const I: number[] = new Array(N).fill(0);
+
+  const addG = (net1: string, net2: string, r: number) => {
+    if (r >= 1e8) return;
+    const cond = 1 / Math.max(r, 1e-4);
+    const i1 = netToIndex[net1];
+    const i2 = netToIndex[net2];
+    if (i1 > 0) G[i1 - 1][i1 - 1] += cond;
+    if (i2 > 0) G[i2 - 1][i2 - 1] += cond;
+    if (i1 > 0 && i2 > 0) {
+      G[i1 - 1][i2 - 1] -= cond;
+      G[i2 - 1][i1 - 1] -= cond;
+    }
+  };
+
+  elements.forEach(el => {
+    if (el.terminals.length >= 2) {
+      const net1 = ds.find(terminalKey(el.id, el.terminals[0].id));
+      const net2 = ds.find(terminalKey(el.id, el.terminals[1].id));
+      if (net1 !== net2) {
+        let r = 1e9;
+        if (el.type === 'resistor') r = el.value || 1000;
+        else if (el.type === 'potentiometer') r = el.value * (el.state?.potentiometerRatio ?? 0.5);
+        else if (el.type === 'lamp') r = el.value || 50;
+        else if (el.type === 'switch') r = el.state?.isOpen ? 1e9 : 1e-4;
+        else if (el.type === 'fuse') r = el.state?.isBlown ? 1e9 : 1e-4;
+        else if (el.type === 'ammeter' || el.type === 'board_green') r = 1e-4;
+        else if (el.type === 'battery' || el.type === 'dc_power_supply') r = el.internalResistance || 1e-4;
+        addG(net1, net2, r);
+      }
+    }
+  });
+
+  const idxA = netToIndex[rootA];
+  if (idxA > 0) {
+    I[idxA - 1] = 1.0;
+  }
+
+  const sol = solveLinearSystem(G, I);
+  if (!sol || idxA <= 0) return Infinity;
+
+  const vA = sol[idxA - 1];
+  return Math.max(0, Number(vA.toFixed(2)));
+}
+
+/**
+ * Helper to get the electrical node index (0 for Ground, 1..N for other nodes)
+ * for a specific component terminal
+ */
+export function getTerminalNodeIndex(
+  elements: CircuitElement[],
+  wires: Wire[],
+  compId: string,
+  termId: string
+): number | null {
+  const ds = new DisjointSet();
+  const terminalKey = (c: string, t: string) => `${c}:${t}`;
+
+  elements.forEach(el => {
+    el.terminals.forEach(t => {
+      ds.find(terminalKey(el.id, t.id));
+    });
+  });
+
+  wires.forEach(w => {
+    ds.union(terminalKey(w.fromCompId, w.fromTermId), terminalKey(w.toCompId, w.toTermId));
+  });
+
+  const targetRoot = ds.find(terminalKey(compId, termId));
+  if (!targetRoot) return null;
+
+  const voltageSources = elements.filter(
+    e => e.type === 'battery' || e.type === 'dc_power_supply' || e.type === 'ac_power_supply'
+  );
+
+  let groundRoot: string | null = null;
+  if (voltageSources.length > 0) {
+    const primarySrc = voltageSources[0];
+    const negTerm = primarySrc.terminals.find(t => t.id === 't2' || t.label === '-') || primarySrc.terminals[1];
+    if (negTerm) groundRoot = ds.find(terminalKey(primarySrc.id, negTerm.id));
+  }
+
+  const netRepresentatives = new Set<string>();
+  elements.forEach(el => {
+    el.terminals.forEach(t => {
+      netRepresentatives.add(ds.find(terminalKey(el.id, t.id)));
+    });
+  });
+
+  const allNets = Array.from(netRepresentatives);
+  if (!groundRoot && allNets.length > 0) groundRoot = allNets[0];
+
+  if (targetRoot === groundRoot) return 0;
+
+  let idx = 1;
+  for (const net of allNets) {
+    if (net !== groundRoot) {
+      if (net === targetRoot) return idx;
+      idx++;
+    }
+  }
+  return null;
 }
 
 /**

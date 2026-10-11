@@ -923,6 +923,152 @@ export const RealisticComponentGraphic: React.FC<ComponentGraphicProps> = ({
     );
   }
 
+  // -------------------------------------------------------------
+  // 6. TRANSISTORS (الترانزستورات NPN و PNP)
+  // -------------------------------------------------------------
+  if (type === 'transistor_npn' || type === 'transistor_pnp') {
+    const isNpn = type === 'transistor_npn';
+    const label = isNpn ? 'BC547 NPN' : 'BC557 PNP';
+
+    return (
+      <svg width={width} height={height} viewBox="0 0 100 100" className="drop-shadow-md">
+        {/* TO-92 Package: Black D-shaped Epoxy Housing */}
+        <path
+          d="M 28 25 C 28 15, 72 15, 72 25 L 72 65 C 72 75, 28 75, 28 65 Z"
+          fill="#18181b"
+          stroke="#3f3f46"
+          strokeWidth={1.5}
+        />
+        {/* Flat Chamfer Face Accent */}
+        <rect x={28} y={35} width={44} height={20} fill="#27272a" />
+        {/* Metal Leads (B, C, E) */}
+        {/* Base Lead Left */}
+        <line x1={15} y1={48} x2={28} y2={48} stroke="#cbd5e1" strokeWidth={3} strokeLinecap="round" />
+        {/* Collector Lead Top Right */}
+        <line x1={72} y1={25} x2={85} y2={25} stroke="#cbd5e1" strokeWidth={3} strokeLinecap="round" />
+        {/* Emitter Lead Bottom Right */}
+        <line x1={72} y1={68} x2={85} y2={68} stroke="#cbd5e1" strokeWidth={3} strokeLinecap="round" />
+
+        {/* Silkscreen text */}
+        <text x={50} y={44} textAnchor="middle" fill="#ffffff" fontSize={6.5} fontWeight="bold" fontFamily="monospace">
+          {label}
+        </text>
+        <text x={50} y={54} textAnchor="middle" fill="#a1a1aa" fontSize={5.5}>
+          {isNpn ? 'BJT NPN' : 'BJT PNP'}
+        </text>
+
+        {/* Pin labels */}
+        <text x={18} y={42} textAnchor="middle" fill="#38bdf8" fontSize={7} fontWeight="bold">B</text>
+        <text x={82} y={18} textAnchor="middle" fill="#f43f5e" fontSize={7} fontWeight="bold">C</text>
+        <text x={82} y={80} textAnchor="middle" fill="#10b981" fontSize={7} fontWeight="bold">E</text>
+
+        {/* Schematic Arrow Indicator */}
+        <g transform="translate(50, 72)">
+          {isNpn ? (
+            /* Arrow pointing OUT for NPN */
+            <path d="M -4 -2 L 4 2 M 0 3 L 4 2 L 3 -1" fill="none" stroke="#34d399" strokeWidth={1.2} />
+          ) : (
+            /* Arrow pointing IN for PNP */
+            <path d="M 4 2 L -4 -2 M -3 -3 L -4 -2 L 0 -1" fill="none" stroke="#f43f5e" strokeWidth={1.2} />
+          )}
+        </g>
+      </svg>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // 7. GREEN ELECTRONICS EXPERIMENT BOARD (لوحة التجارب الخضراء)
+  // -------------------------------------------------------------
+  if (type === 'board_green') {
+    return (
+      <svg width={width} height={height} viewBox="0 0 100 100" className="drop-shadow-lg">
+        {/* Dark Green Matte PCB Substrate */}
+        <rect x={8} y={10} width={84} height={80} rx={6} fill="#14532d" stroke="#166534" strokeWidth={2} />
+        {/* Grid pattern / trace lines */}
+        <rect x={12} y={14} width={76} height={72} rx={4} fill="#15803d" opacity={0.6} />
+        {/* Gold copper traces */}
+        <line x1={18} y1={25} x2={40} y2={25} stroke="#eab308" strokeWidth={1.5} opacity={0.8} />
+        <line x1={18} y1={75} x2={40} y2={75} stroke="#eab308" strokeWidth={1.5} opacity={0.8} />
+        <line x1={60} y1={25} x2={82} y2={25} stroke="#eab308" strokeWidth={1.5} opacity={0.8} />
+        <line x1={60} y1={75} x2={82} y2={75} stroke="#eab308" strokeWidth={1.5} opacity={0.8} />
+        <line x1={40} y1={25} x2={40} y2={75} stroke="#eab308" strokeWidth={1} strokeDasharray="3 2" opacity={0.6} />
+        <line x1={60} y1={25} x2={60} y2={75} stroke="#eab308" strokeWidth={1} strokeDasharray="3 2" opacity={0.6} />
+
+        {/* Mounting screw holes in corners */}
+        <circle cx={14} cy={16} r={2.5} fill="#09090b" stroke="#ca8a04" strokeWidth={0.8} />
+        <circle cx={86} cy={16} r={2.5} fill="#09090b" stroke="#ca8a04" strokeWidth={0.8} />
+        <circle cx={14} cy={84} r={2.5} fill="#09090b" stroke="#ca8a04" strokeWidth={0.8} />
+        <circle cx={86} cy={84} r={2.5} fill="#09090b" stroke="#ca8a04" strokeWidth={0.8} />
+
+        {/* Gold ENIG Contact Pads */}
+        {/* Left Screw Terminal Block */}
+        <rect x={12} y={20} width={8} height={10} rx={1} fill="#09090b" stroke="#ca8a04" strokeWidth={1} />
+        <circle cx={16} cy={25} r={2} fill="#eab308" />
+        <rect x={12} y={70} width={8} height={10} rx={1} fill="#09090b" stroke="#ca8a04" strokeWidth={1} />
+        <circle cx={16} cy={75} r={2} fill="#eab308" />
+
+        {/* Right Screw Terminal Block */}
+        <rect x={80} y={20} width={8} height={10} rx={1} fill="#09090b" stroke="#ca8a04" strokeWidth={1} />
+        <circle cx={84} cy={25} r={2} fill="#eab308" />
+        <rect x={80} y={70} width={8} height={10} rx={1} fill="#09090b" stroke="#ca8a04" strokeWidth={1} />
+        <circle cx={84} cy={75} r={2} fill="#eab308" />
+
+        {/* Top/Bottom Test Pins */}
+        <circle cx={38} cy={20} r={2.5} fill="#facc15" stroke="#a16207" strokeWidth={0.8} />
+        <circle cx={62} cy={20} r={2.5} fill="#facc15" stroke="#a16207" strokeWidth={0.8} />
+        <circle cx={38} cy={80} r={2.5} fill="#facc15" stroke="#a16207" strokeWidth={0.8} />
+        <circle cx={62} cy={80} r={2.5} fill="#facc15" stroke="#a16207" strokeWidth={0.8} />
+
+        {/* Central Silkscreen Branding */}
+        <rect x={24} y={38} width={52} height={24} rx={2} fill="#052e16" stroke="#15803d" />
+        <text x={50} y={48} textAnchor="middle" fill="#ffffff" fontSize={5.5} fontWeight="bold" fontFamily="sans-serif">
+          YEMEN MECHATRONICS
+        </text>
+        <text x={50} y={56} textAnchor="middle" fill="#86efac" fontSize={5} fontWeight="bold">
+          LAB BOARD
+        </text>
+      </svg>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // 8. MULTIMETER (الملتيميتر الرقمي الأصفر)
+  // -------------------------------------------------------------
+  if (type === 'multimeter') {
+    return (
+      <svg width={width} height={height} viewBox="0 0 100 100" className="drop-shadow-lg">
+        {/* Yellow Holster Casing */}
+        <rect x={14} y={10} width={72} height={80} rx={8} fill="#eab308" stroke="#ca8a04" strokeWidth={1.8} />
+        {/* Bezel inner dark border */}
+        <rect x={18} y={14} width={64} height={72} rx={6} fill="#1e293b" />
+        {/* LCD Display */}
+        <rect x={24} y={18} width={52} height={20} rx={3} fill="#a3e635" opacity={0.2} stroke="#4d7c0f" strokeWidth={0.8} />
+        <rect x={24} y={18} width={52} height={20} rx={3} fill="#09090b" opacity={0.9} />
+        <text x={50} y={32} textAnchor="middle" fill="#a3e635" fontSize={11} fontWeight="bold" fontFamily="monospace">
+          {element.value ? `${element.value}` : '0.00'}
+        </text>
+        {/* Rotary Selector Dial */}
+        <circle cx={50} cy={52} r={14} fill="#0f172a" stroke="#475569" strokeWidth={1.5} />
+        <circle cx={50} cy={52} r={10} fill="#334155" />
+        {/* Dial Pointer Line */}
+        <line x1={50} y1={52} x2={50} y2={42} stroke="#facc15" strokeWidth={2} strokeLinecap="round" />
+        {/* Dial range dots */}
+        <circle cx={50} cy={37} r={1} fill="#ffffff" />
+        <circle cx={62} cy={44} r={1} fill="#38bdf8" />
+        <circle cx={62} cy={60} r={1} fill="#4ade80" />
+        <circle cx={38} cy={60} r={1} fill="#fb7185" />
+        <circle cx={38} cy={44} r={1} fill="#fbbf24" />
+        {/* Bottom Jacks: 10A, COM, VΩmA */}
+        <circle cx={32} cy={74} r={3.5} fill="#ef4444" stroke="#991b1b" strokeWidth={0.8} />
+        <circle cx={50} cy={74} r={3.5} fill="#09090b" stroke="#475569" strokeWidth={0.8} />
+        <circle cx={68} cy={74} r={3.5} fill="#ef4444" stroke="#991b1b" strokeWidth={0.8} />
+        <text x={32} y={83} textAnchor="middle" fill="#fca5a5" fontSize={4} fontWeight="bold">10A</text>
+        <text x={50} y={83} textAnchor="middle" fill="#cbd5e1" fontSize={4} fontWeight="bold">COM</text>
+        <text x={68} y={83} textAnchor="middle" fill="#fca5a5" fontSize={4} fontWeight="bold">VΩmA</text>
+      </svg>
+    );
+  }
+
   // Fallback generic renderer
   return null;
 };

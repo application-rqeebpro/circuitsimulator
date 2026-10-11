@@ -22,6 +22,7 @@ import {
   Thermometer
 } from 'lucide-react';
 import { RealisticComponentGraphic } from './RealisticComponentGraphics';
+import { ProbeTarget } from './InteractiveMultimeter';
 
 interface CircuitCanvasProps {
   elements: CircuitElement[];
@@ -36,6 +37,13 @@ interface CircuitCanvasProps {
   isSimulating: boolean;
   onDropComponentAt?: (comp: Omit<CircuitElement, 'id'>) => void;
   onOpenOscilloscope?: (el: CircuitElement) => void;
+  redProbe?: ProbeTarget | null;
+  blackProbe?: ProbeTarget | null;
+  onSetRedProbe?: (probe: ProbeTarget | null) => void;
+  onSetBlackProbe?: (probe: ProbeTarget | null) => void;
+  activeProbePlacing?: 'red' | 'black' | null;
+  onSetActiveProbePlacing?: (mode: 'red' | 'black' | null) => void;
+  onOpenMultimeter?: () => void;
 }
 
 export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
@@ -51,6 +59,13 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
   isSimulating,
   onDropComponentAt,
   onOpenOscilloscope,
+  redProbe,
+  blackProbe,
+  onSetRedProbe,
+  onSetBlackProbe,
+  activeProbePlacing,
+  onSetActiveProbePlacing,
+  onOpenMultimeter,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +85,7 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
 
   // Selected wire for deletion
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
+  const [selectedWireColor, setSelectedWireColor] = useState<string>('#ef4444');
 
   // Handle Pan start
   const handleBackgroundMouseDown = (e: React.MouseEvent) => {
@@ -79,6 +95,7 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
       onSelectElement(null);
       setSelectedWireId(null);
       setWiringFrom(null);
+      if (activeProbePlacing && onSetActiveProbePlacing) onSetActiveProbePlacing(null);
     }
   };
 
@@ -160,10 +177,41 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
     };
   };
 
-  // Start or Complete Wiring
+  // Start or Complete Wiring or Place Multimeter Probe
   const handleTerminalClick = (e: React.MouseEvent, comp: CircuitElement, term: Terminal) => {
     e.stopPropagation();
     const coords = getTerminalCoords(comp, term);
+
+    // If actively placing multimeter probe
+    if (activeProbePlacing === 'red') {
+      if (onSetRedProbe) {
+        onSetRedProbe({
+          compId: comp.id,
+          termId: term.id,
+          compName: comp.name,
+          termLabel: term.label,
+          x: coords.x,
+          y: coords.y,
+        });
+      }
+      if (onSetActiveProbePlacing) onSetActiveProbePlacing(null);
+      return;
+    }
+
+    if (activeProbePlacing === 'black') {
+      if (onSetBlackProbe) {
+        onSetBlackProbe({
+          compId: comp.id,
+          termId: term.id,
+          compName: comp.name,
+          termLabel: term.label,
+          x: coords.x,
+          y: coords.y,
+        });
+      }
+      if (onSetActiveProbePlacing) onSetActiveProbePlacing(null);
+      return;
+    }
 
     if (!wiringFrom) {
       // Start wire
@@ -172,18 +220,13 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
     } else {
       // Complete wire if different terminal
       if (wiringFrom.compId !== comp.id || wiringFrom.termId !== term.id) {
-        // Pick wire color based on polarity or component
-        let wireColor = '#10b981'; // default emerald
-        if (term.label === '+' || wiringFrom.termId === 't1') wireColor = '#ef4444'; // Red
-        if (term.label === '-' || wiringFrom.termId === 't2') wireColor = '#0284c7'; // Blue
-
         onAddWire({
           id: `w-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
           fromCompId: wiringFrom.compId,
           fromTermId: wiringFrom.termId,
           toCompId: comp.id,
           toTermId: term.id,
-          color: wireColor,
+          color: selectedWireColor,
         });
       }
       setWiringFrom(null);
@@ -532,6 +575,35 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
         );
       }
 
+      case 'transistor_npn':
+      case 'transistor_pnp': {
+        const isConducting = isSimulating && Math.abs(currentA) > 0.001;
+        return (
+          <div className="relative w-[96px] h-[92px] flex flex-col items-center justify-center p-1 group">
+            <RealisticComponentGraphic element={el} width={88} height={82} />
+            <div className={`absolute -bottom-2 px-1.5 py-0.5 rounded border text-[8px] font-mono font-bold shadow flex items-center gap-1 ${
+              isConducting 
+                ? 'bg-emerald-950/95 border-emerald-500/80 text-emerald-300' 
+                : 'bg-slate-950/90 border-slate-700/80 text-slate-400'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isConducting ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
+              <span>{isConducting ? 'ON موصّل' : 'OFF قاطع'}</span>
+            </div>
+          </div>
+        );
+      }
+
+      case 'board_green': {
+        return (
+          <div className="relative w-[130px] h-[120px] flex flex-col items-center justify-center p-1 group">
+            <RealisticComponentGraphic element={el} width={124} height={114} />
+            <div className="absolute -bottom-2 px-1.5 py-0.5 rounded bg-emerald-950/90 border border-emerald-500/60 text-[8px] font-bold text-emerald-300 shadow">
+              لوحة تجارب خضراء (PCB)
+            </div>
+          </div>
+        );
+      }
+
       default:
         return (
           <div className="w-[92px] h-[78px] bg-slate-900 border border-slate-700 rounded-xl p-2 text-center text-xs flex items-center justify-center">
@@ -540,6 +612,15 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
         );
     }
   };
+
+  // Multimeter attached probe coordinates
+  const rComp = redProbe ? elements.find(e => e.id === redProbe.compId) : null;
+  const rTerm = rComp && redProbe ? rComp.terminals.find(t => t.id === redProbe.termId) : null;
+  const rCoords = rComp && rTerm ? getTerminalCoords(rComp, rTerm) : null;
+
+  const bComp = blackProbe ? elements.find(e => e.id === blackProbe.compId) : null;
+  const bTerm = bComp && blackProbe ? bComp.terminals.find(t => t.id === blackProbe.termId) : null;
+  const bCoords = bComp && bTerm ? getTerminalCoords(bComp, bTerm) : null;
 
   return (
     <div
@@ -577,8 +658,8 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
       }}
       className="relative w-full h-full min-h-[550px] bg-slate-950 overflow-hidden select-none cursor-crosshair bg-circuit-pattern"
     >
-      {/* Zoom / Pan Controller Overlay */}
-      <div className="absolute top-4 left-4 z-30 flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl shadow-lg backdrop-blur">
+      {/* Zoom / Pan Controller Overlay & Wire Palette */}
+      <div className="absolute top-4 left-4 z-30 flex items-center gap-2 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl shadow-lg backdrop-blur">
         <button
           onClick={() => setScale(s => Math.min(s + 0.15, 2.0))}
           className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold"
@@ -603,17 +684,70 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
         >
           إعادة
         </button>
+
+        {/* Wire Color Selector: Red, Black, Blue, Green, Yellow */}
+        <div className="flex items-center gap-1 border-r border-slate-700 pr-2 mr-1">
+          <span className="text-[9px] text-slate-400 font-bold hidden sm:inline">السلك:</span>
+          {[
+            { color: '#ef4444', label: 'أحمر (+)' },
+            { color: '#09090b', label: 'أسود (-)' },
+            { color: '#0284c7', label: 'أزرق' },
+            { color: '#10b981', label: 'أخضر' },
+            { color: '#eab308', label: 'أصفر' },
+          ].map(c => (
+            <button
+              key={c.color}
+              type="button"
+              onClick={() => setSelectedWireColor(c.color)}
+              className={`w-4.5 h-4.5 rounded-full border-2 transition-transform ${
+                selectedWireColor === c.color ? 'scale-125 ring-2 ring-white z-10' : 'opacity-70 hover:opacity-100'
+              }`}
+              style={{ backgroundColor: c.color, borderColor: '#cbd5e1' }}
+              title={`سلك ${c.label}`}
+            />
+          ))}
+        </div>
+
+        {/* Multimeter Launch Button */}
+        {onOpenMultimeter && (
+          <button
+            onClick={onOpenMultimeter}
+            className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-bold flex items-center gap-1 transition-colors"
+            title="فتح جهاز الملتيميتر الرقمي الأصفر"
+          >
+            <Gauge className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">الملتيميتر الأصفر</span>
+          </button>
+        )}
       </div>
 
+      {/* Multimeter Probe Placement Banner */}
+      {activeProbePlacing && (
+        <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-full border text-xs font-bold flex items-center gap-2 animate-bounce shadow-2xl backdrop-blur ${
+          activeProbePlacing === 'red'
+            ? 'bg-red-950/95 border-red-500 text-red-200'
+            : 'bg-slate-950/95 border-slate-400 text-white'
+        }`}>
+          <div className={`w-3 h-3 rounded-full ${activeProbePlacing === 'red' ? 'bg-red-500' : 'bg-slate-900 border border-white'}`} />
+          <span>👉 انقر على طرف المكون في الدائرة لتوصيل المجس {activeProbePlacing === 'red' ? 'الأحمر (+)' : 'الأسود (-)'}</span>
+          <button
+            onClick={() => onSetActiveProbePlacing && onSetActiveProbePlacing(null)}
+            className="p-0.5 rounded hover:bg-white/20 text-slate-300"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Wiring In-Progress Notice */}
-      {wiringFrom && (
+      {wiringFrom && !activeProbePlacing && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-xs font-medium flex items-center gap-2 animate-pulse shadow-lg backdrop-blur">
           <Zap className="w-3.5 h-3.5" />
           <span>جارٍ توصيل سلك... انقر على طرف المكون الآخر لإنهاء التوصيل (أو انقر بالخلفية للإلغاء)</span>
         </div>
       )}
 
-      {/* SVG Canvas for Wires */}
+      {/* SVG Canvas for Wires & Probes */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
         style={{
@@ -707,10 +841,41 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
             y1={wiringFrom.y}
             x2={mousePos.x}
             y2={mousePos.y}
-            stroke="#10b981"
-            strokeWidth={2.5}
+            stroke={selectedWireColor}
+            strokeWidth={3}
             strokeDasharray="4 4"
           />
+        )}
+
+        {/* Render Connected Multimeter Probes */}
+        {rCoords && (
+          <g className="pointer-events-auto cursor-pointer" onClick={() => onSetRedProbe && onSetRedProbe(null)}>
+            {/* Red probe tip pin */}
+            <circle cx={rCoords.x} cy={rCoords.y} r={9} fill="#ef4444" stroke="#ffffff" strokeWidth={2.5} filter="drop-shadow(0 0 8px #ef4444)" />
+            {/* Probe Handle Needle */}
+            <line x1={rCoords.x} y1={rCoords.y} x2={rCoords.x - 24} y2={rCoords.y - 32} stroke="#ef4444" strokeWidth={7} strokeLinecap="round" />
+            <rect x={rCoords.x - 44} y={rCoords.y - 48} width={22} height={8} rx={2} fill="#991b1b" />
+            {/* Badge */}
+            <g transform={`translate(${rCoords.x - 10}, ${rCoords.y - 36})`}>
+              <rect x={-36} y={-10} width={72} height={20} rx={6} fill="#b91c1c" stroke="#fca5a5" strokeWidth={1.2} />
+              <text x={0} y={4} textAnchor="middle" fill="#ffffff" fontSize={10} fontWeight="bold">🔴 مجس V(+)</text>
+            </g>
+          </g>
+        )}
+
+        {bCoords && (
+          <g className="pointer-events-auto cursor-pointer" onClick={() => onSetBlackProbe && onSetBlackProbe(null)}>
+            {/* Black probe tip pin */}
+            <circle cx={bCoords.x} cy={bCoords.y} r={9} fill="#09090b" stroke="#ffffff" strokeWidth={2.5} filter="drop-shadow(0 0 8px #ffffff)" />
+            {/* Probe Handle Needle */}
+            <line x1={bCoords.x} y1={bCoords.y} x2={bCoords.x + 24} y2={bCoords.y - 32} stroke="#18181b" strokeWidth={7} strokeLinecap="round" />
+            <rect x={bCoords.x + 22} y={bCoords.y - 48} width={22} height={8} rx={2} fill="#27272a" />
+            {/* Badge */}
+            <g transform={`translate(${bCoords.x + 10}, ${bCoords.y - 36})`}>
+              <rect x={-42} y={-10} width={84} height={20} rx={6} fill="#18181b" stroke="#e2e8f0" strokeWidth={1.2} />
+              <text x={0} y={4} textAnchor="middle" fill="#ffffff" fontSize={10} fontWeight="bold">⚫ مجس COM(-)</text>
+            </g>
+          </g>
         )}
       </svg>
 

@@ -23,6 +23,7 @@ import { OwnerDashboard } from './components/OwnerDashboard';
 import { AuthModals } from './components/AuthModals';
 import { ColorCodeModal } from './components/ColorCodeModal';
 import { OscilloscopeModal } from './components/OscilloscopeModal';
+import { InteractiveMultimeter, ProbeTarget } from './components/InteractiveMultimeter';
 
 // Icons
 import { 
@@ -38,7 +39,11 @@ import {
   Compass,
   KeyRound,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  Gauge,
+  Award,
+  Check,
+  CheckSquare
 } from 'lucide-react';
 
 export default function App() {
@@ -66,6 +71,23 @@ export default function App() {
   const [componentLibraryOpen, setComponentLibraryOpen] = useState(true);
   const [experimentDrawerOpen, setExperimentDrawerOpen] = useState(false);
   const [activeExperiment, setActiveExperiment] = useState<Experiment | null>(EXPERIMENTS_LIST[2]); // Default Ohm's Law
+  const [showExperimentBanner, setShowExperimentBanner] = useState(true);
+
+  // Digital Multimeter & Probes State
+  const [multimeterOpen, setMultimeterOpen] = useState(true);
+  const [redProbe, setRedProbe] = useState<ProbeTarget | null>({
+    compId: 'res-init',
+    termId: 't1',
+    compName: 'R1 (1kΩ)',
+    termLabel: '1',
+  });
+  const [blackProbe, setBlackProbe] = useState<ProbeTarget | null>({
+    compId: 'res-init',
+    termId: 't2',
+    compName: 'R1 (1kΩ)',
+    termLabel: '2',
+  });
+  const [activeProbePlacing, setActiveProbePlacing] = useState<'red' | 'black' | null>(null);
 
   // Circuit Workspace State (Default with Ohm's law verification circuit: 9V + 1kΩ -> 9mA)
   const [elements, setElements] = useState<CircuitElement[]>([
@@ -460,36 +482,75 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Right: Simulation Controls */}
-                  <div className="flex items-center gap-2">
+                  {/* Right: Simulation & Experiment Controls */}
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    {/* Start Experiment Button */}
+                    <button
+                      onClick={() => activeExperiment && handleLoadExperimentCircuit(activeExperiment)}
+                      className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-600/25 flex items-center gap-1.5 transition-all"
+                      title="بدء تشغيل وتوصيل التجربة المحددة في مساحة العمل"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-white" />
+                      <span>ابدأ التجربة</span>
+                    </button>
+
+                    {/* Reset Circuit Button */}
+                    <button
+                      onClick={handleResetCanvas}
+                      className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition-colors"
+                      title="إعادة ضبط ومسح الدائرة"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">إعادة ضبط الدائرة</span>
+                    </button>
+
+                    {/* Simulation Toggle */}
                     <button
                       onClick={() => setIsSimulating(s => !s)}
-                      className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm ${
+                      className={`py-1.5 px-2.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors ${
                         isSimulating
                           ? 'bg-amber-600 hover:bg-amber-500 text-white'
                           : 'bg-emerald-600 hover:bg-emerald-500 text-white'
                       }`}
                     >
                       {isSimulating ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-white" />}
-                      <span>{isSimulating ? 'إيقاف مؤقت' : 'تشغيل المحاكاة'}</span>
+                      <span>{isSimulating ? 'إيقاف مؤقت' : 'تشغيل'}</span>
                     </button>
 
+                    {/* Yellow Multimeter Toggle Button */}
                     <button
-                      onClick={handleResetCanvas}
-                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                      title="مسح لوحة العمل"
+                      onClick={() => setMultimeterOpen(o => !o)}
+                      className={`py-1.5 px-2.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-colors ${
+                        multimeterOpen
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow'
+                          : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                      }`}
+                      title="إظهار / إخفاء جهاز الملتيميتر الرقمي الأصفر"
                     >
-                      <RotateCcw className="w-4 h-4" />
+                      <Gauge className="w-3.5 h-3.5 text-amber-400" />
+                      <span>الملتيميتر الأصفر</span>
                     </button>
 
+                    {/* Run 3 Test Cases Verification Button */}
+                    <button
+                      onClick={() => setVerificationOpen(true)}
+                      className="py-1.5 px-2.5 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                      title="فحص المحاكاة بالحالات الهندسية الثلاث"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5 text-cyan-400" />
+                      <span className="hidden md:inline">فحص الحالات (3)</span>
+                    </button>
+
+                    {/* Save Circuit Button */}
                     <button
                       onClick={() => setSavedCircuitsOpen(true)}
-                      className="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 text-xs font-medium flex items-center gap-1 border border-slate-700 transition-colors"
+                      className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 text-xs font-medium flex items-center gap-1 border border-slate-700 transition-colors"
                     >
                       <Save className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">حفظ الدائرة</span>
+                      <span className="hidden sm:inline">حفظ</span>
                     </button>
 
+                    {/* Experiments Drawer Toggle */}
                     <button
                       onClick={() => setExperimentDrawerOpen(true)}
                       className="py-1.5 px-3 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 transition-colors"
@@ -499,6 +560,61 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+
+                {/* Educational Experiment Guidance Banner */}
+                {activeExperiment && showExperimentBanner && (
+                  <div className="bg-slate-900/95 border-b border-slate-800 px-4 py-2 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs z-25">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">
+                            التجربة {activeExperiment.number}: {activeExperiment.title}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-medium">
+                            {activeExperiment.category}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-300 mt-0.5 leading-snug line-clamp-1">
+                          <strong className="text-emerald-400">الهدف:</strong> {activeExperiment.objective}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
+                      <button
+                        onClick={() => handleLoadExperimentCircuit(activeExperiment)}
+                        className="py-1 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-sm flex items-center gap-1"
+                      >
+                        <Play className="w-3 h-3 fill-white" />
+                        <span>تحميل دائرة التجربة</span>
+                      </button>
+
+                      {activeExperiment.quiz && activeExperiment.quiz.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setQuizExperiment(activeExperiment);
+                            setQuizOpen(true);
+                          }}
+                          className="py-1 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-[11px] flex items-center gap-1"
+                        >
+                          <Award className="w-3.5 h-3.5 text-amber-400" />
+                          <span>حل أسئلة التجربة</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => setShowExperimentBanner(false)}
+                        className="p-1 rounded text-slate-400 hover:text-white"
+                        title="إخفاء شريط الشرح"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Error Banner if Short Circuit or Warnings exist */}
                 {simulationResult.errors.length > 0 && (
@@ -537,6 +653,13 @@ export default function App() {
                         setActiveOscilloscopeElement(el);
                         setOscilloscopeModalOpen(true);
                       }}
+                      redProbe={redProbe}
+                      blackProbe={blackProbe}
+                      onSetRedProbe={setRedProbe}
+                      onSetBlackProbe={setBlackProbe}
+                      activeProbePlacing={activeProbePlacing}
+                      onSetActiveProbePlacing={setActiveProbePlacing}
+                      onOpenMultimeter={() => setMultimeterOpen(true)}
                     />
 
                     {/* Properties Panel for Selected Element */}
@@ -551,6 +674,21 @@ export default function App() {
                         setActiveOscilloscopeElement(el);
                         setOscilloscopeModalOpen(true);
                       }}
+                    />
+
+                    {/* Interactive Yellow Digital Multimeter */}
+                    <InteractiveMultimeter
+                      isOpen={multimeterOpen}
+                      onClose={() => setMultimeterOpen(false)}
+                      elements={elements}
+                      wires={wires}
+                      simulationResult={simulationResult}
+                      redProbe={redProbe}
+                      blackProbe={blackProbe}
+                      onSetRedProbe={setRedProbe}
+                      onSetBlackProbe={setBlackProbe}
+                      activeProbePlacing={activeProbePlacing}
+                      onSetActiveProbePlacing={setActiveProbePlacing}
                     />
                   </div>
 

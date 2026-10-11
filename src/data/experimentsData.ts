@@ -1195,5 +1195,186 @@ export const EXPERIMENTS_LIST: Experiment[] = [
         explanation: 'بحسب قانون القدرة: P = V × I = 12 × 0.2 = 2.4 Watt.'
       }
     ]
+  },
+  {
+    id: 'exp-15',
+    number: 15,
+    title: 'تجربة الترانزستور والملتيميتر (المحاكاة التفاعلية بالفيديو)',
+    titleEn: 'Transistor Switching & Digital Multimeter Probing',
+    category: 'إلكترونيات الميكاترونكس',
+    level: 'المستوى المتقدم - الميكاترونكس',
+    objective: 'محاكاة التجربة الظاهرة في الفيديو: استخدام الترانزستور NPN كمفتاح كهربائي للتحكم في إضاءة المصباح عبر بطارية 9V ولوحة التجارب الخضراء، واستخدام الملتيميتر الأصفر لقياس الجهد والتيار والاستمرارية.',
+    tools: [
+      'بطارية 9V كتلة (PP3 Block Battery)',
+      'لوحة تجارب إلكترونية خضراء (Green PCB Lab Board)',
+      'ترانزستور ثنائي القطبية BC547 NPN',
+      'مفتاح تشغيل قاعدة الترانزستور (SPST Switch)',
+      'مقاومة قاعدة 1kΩ لحماية وصلة B-E',
+      'مصباح كهربائي 50Ω',
+      'جهاز ملتيميتر رقمي أصفر بمجسات قياس (DT-830D)'
+    ],
+    schematicDescription: 'يُوصل طرف المجمع (Collector) بالمصباح إلى قطب البطارية الموجب، بينما يُوصل المشع (Emitter) بالقطب السالب (GND). عند غلق المفتاح، يسري تيار صغير في القاعدة (Base) مما يؤدي إلى تشبع الترانزستور وتوصيل مسار المجمع-المشع ليضيء المصباح بقوة.',
+    steps: [
+      'ضع بطارية 9V ولوحة التجارب الخضراء في مساحة العمل.',
+      'ركّب ترانزستور BC547 NPN على اللوحة.',
+      'وصّل مفتاح التحكم ومقاومة 1kΩ بين القطب الموجب وقاعدة الترانزستور (B).',
+      'وصّل المصباح بين القطب الموجب ومجمع الترانزستور (C).',
+      'وصّل مشع الترانزستور (E) بالقطب السالب للبطارية (GND).',
+      'شغّل المحاكاة واضغط على المفتاح: لاحظ كيف يضيء المصباح فور تدفق تيار القاعدة.',
+      'افتح جهاز الملتيميتر الأصفر وصِل المجس الأحمر بالمجمع (C) والمجس الأسود بالمشع (E) لقياس جهد التشبع Vce (أقل من 0.2V عند التوصيل و9V عند القطع).'
+    ],
+    scientificExplanation: 'يعمل ترانزستور BJT NPN كمفتاح إلكتروني صلب بدون أجزاء ميكانيكية. يتحكم تيار دخل صغير جداً في القاعدة Ib في تيار حمل كبير Ic عبر تيار التشبع، وهو الركيزة الأساسية لدوائر التحكم في روبوتات وأنظمة الميكاترونكس.',
+    defaultCircuit: {
+      elements: [
+        {
+          id: 'bat-vid',
+          type: 'battery',
+          subType: 'battery_9v',
+          name: 'بطارية 9V (PP3)',
+          x: 80,
+          y: 200,
+          rotation: 0,
+          value: 9,
+          unit: 'V',
+          terminals: [
+            { id: 't1', label: '+', relX: 38, relY: 14 },
+            { id: 't2', label: '-', relX: 62, relY: 14 },
+          ],
+        },
+        {
+          id: 'board-vid',
+          type: 'board_green',
+          subType: 'board_pcb_green',
+          name: 'لوحة تجارب خضراء (PCB)',
+          x: 260,
+          y: 190,
+          rotation: 0,
+          value: 0,
+          unit: '',
+          terminals: [
+            { id: 't1', label: 'IN (+)', relX: 16, relY: 24 },
+            { id: 't2', label: 'IN (-)', relX: 16, relY: 76 },
+            { id: 't3', label: 'GND 1', relX: 38, relY: 82 },
+            { id: 't4', label: 'GND 2', relX: 62, relY: 82 },
+            { id: 't5', label: 'OUT A', relX: 84, relY: 24 },
+            { id: 't6', label: 'OUT B', relX: 84, relY: 76 },
+            { id: 't7', label: 'TP 1', relX: 38, relY: 20 },
+            { id: 't8', label: 'TP 2', relX: 62, relY: 20 },
+          ],
+        },
+        {
+          id: 'sw-vid',
+          type: 'switch',
+          name: 'مفتاح القاعدة',
+          x: 100,
+          y: 60,
+          rotation: 0,
+          value: 1,
+          unit: '',
+          state: { isOpen: false },
+          terminals: [
+            { id: 't1', label: '1', relX: 10, relY: 35 },
+            { id: 't2', label: '2', relX: 70, relY: 35 },
+          ],
+        },
+        {
+          id: 'res-vid',
+          type: 'resistor',
+          name: 'Rb (1kΩ)',
+          x: 270,
+          y: 60,
+          rotation: 0,
+          value: 1000,
+          unit: 'Ω',
+          terminals: [
+            { id: 't1', label: '1', relX: 15, relY: 40 },
+            { id: 't2', label: '2', relX: 75, relY: 40 },
+          ],
+        },
+        {
+          id: 'tr-vid',
+          type: 'transistor_npn',
+          subType: 'transistor_bc547',
+          name: 'ترانزستور BC547 NPN',
+          x: 450,
+          y: 190,
+          rotation: 0,
+          value: 100,
+          unit: 'β',
+          terminals: [
+            { id: 't1', label: 'B (Base)', relX: 18, relY: 48 },
+            { id: 't2', label: 'C (Collector)', relX: 78, relY: 22 },
+            { id: 't3', label: 'E (Emitter)', relX: 78, relY: 74 },
+          ],
+        },
+        {
+          id: 'lamp-vid',
+          type: 'lamp',
+          name: 'مصباح الحمل 50Ω',
+          x: 450,
+          y: 60,
+          rotation: 0,
+          value: 50,
+          unit: 'Ω',
+          terminals: [
+            { id: 't1', label: 'A', relX: 15, relY: 45 },
+            { id: 't2', label: 'B', relX: 65, relY: 45 },
+          ],
+        },
+      ],
+      wires: [
+        // Battery + to Switch
+        { id: 'wv-1', fromCompId: 'bat-vid', fromTermId: 't1', toCompId: 'sw-vid', toTermId: 't1', color: '#ef4444' },
+        // Battery + to Lamp
+        { id: 'wv-2', fromCompId: 'bat-vid', fromTermId: 't1', toCompId: 'lamp-vid', toTermId: 't1', color: '#ef4444' },
+        // Switch to Base Resistor
+        { id: 'wv-3', fromCompId: 'sw-vid', fromTermId: 't2', toCompId: 'res-vid', toTermId: 't1', color: '#eab308' },
+        // Base Resistor to Transistor Base
+        { id: 'wv-4', fromCompId: 'res-vid', fromTermId: 't2', toCompId: 'tr-vid', toTermId: 't1', color: '#eab308' },
+        // Lamp to Transistor Collector
+        { id: 'wv-5', fromCompId: 'lamp-vid', fromTermId: 't2', toCompId: 'tr-vid', toTermId: 't2', color: '#ef4444' },
+        // Transistor Emitter to Battery -
+        { id: 'wv-6', fromCompId: 'tr-vid', fromTermId: 't3', toCompId: 'bat-vid', toTermId: 't2', color: '#09090b' },
+      ],
+    },
+    quiz: [
+      {
+        id: 'qv-1',
+        question: 'ما هو دور تيار القاعدة (Ib) في ترانزستور NPN في هذه التجربة؟',
+        options: [
+          'يتحكم في تدفق تيار المجمع (Ic) ليعمل الترانزستور كمفتاح لتشغيل المصباح',
+          'يوقف تدفق أي تيار في الدائرة بالكامل',
+          'يعكس قطبية بطارية الـ 9V',
+          'يحول التيار المستمر DC إلى متردد AC'
+        ],
+        correctIndex: 0,
+        explanation: 'في ترانزستور NPN، يؤدي إمداد القاعدة بجهد أعلى من المشع (>0.65V) إلى تدفق تيار القاعدة Ib، مما يشبع الترانزستور ويسمح بمرور تيار المجمع Ic لإضاءة المصباح.'
+      },
+      {
+        id: 'qv-2',
+        question: 'عندما يكون الترانزستور في وضع التشبع (ON)، كم تبلغ قراءة الجهد Vce تقريباً على الملتيميتر؟',
+        options: [
+          'قيمة صغيرة جداً قريبة من الصفر (~ 0.1V إلى 0.2V)',
+          '9V كاملة مثل البطارية',
+          '1000V',
+          'مالانهاية'
+        ],
+        correctIndex: 0,
+        explanation: 'في حالة التشبع التام، يكون فرق الجهد بين المجمع والمشع صغيراً جداً (Sat Voltage ~ 0.1V - 0.2V)، مما يعني أن كل جهد المصدر يذهب إلى المصباح.'
+      },
+      {
+        id: 'qv-3',
+        question: 'ماذا تعني إشارة 1. على شاشة الملتيميتر الأصفر عند قياس المقاومة؟',
+        options: [
+          'دائرة مفتوحة (Open Loop / Out of Range) وتدل على عدم وجود مسار توصيل',
+          'قيمة المقاومة 1 أوم فقط',
+          'البطارية فارغة',
+          'حدث قصر كهربائي مباشر'
+        ],
+        correctIndex: 0,
+        explanation: 'في أجهزة الملتيميتر الرقمية الشائعة مثل DT-830D، ظهور 1. على يسار الشاشة يشير إلى Open Loop (مقاومة تتجاوز النطاق المحدد أو مسار مفتوح).'
+      }
+    ]
   }
 ];
+
