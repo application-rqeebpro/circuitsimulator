@@ -18,7 +18,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express();
+export const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -300,30 +300,35 @@ app.get('/api/students', authenticateUser, requireOwner, (req: AuthenticatedRequ
   return res.json({ students: students.map(sanitizeUser) });
 });
 
-// Update Student Status (Activate / Suspend)
+// Update Student Status (Active / Suspended)
 app.patch('/api/students/:id/status', authenticateUser, requireOwner, (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
   const { status } = req.body;
   if (!['active', 'suspended', 'pending'].includes(status)) {
     return res.status(400).json({ error: 'حالة غير صالحة' });
   }
 
-  const updated = db.updateUser(id, { status });
+  const updated = db.updateUser(req.params.id, { status });
   if (!updated) {
     return res.status(404).json({ error: 'الطالب غير موجود' });
   }
 
-  db.logAudit('تعديل حالة طالب', req.user!.fullName, `تم تغيير حالة الطالب ${updated.fullName} إلى: ${status}`);
-  return res.json({ message: 'تم تحديث حالة الطالب بنجاح', student: sanitizeUser(updated) });
+  db.logAudit(
+    'تغيير حالة حساب طالب',
+    req.user!.fullName,
+    `تم تغيير حالة حساب الطالب ${updated.fullName} إلى: ${status === 'active' ? 'مفعل' : 'موقوف'}`
+  );
+
+  return res.json({
+    message: 'تم تحديث حالة الطالب بنجاح',
+    student: sanitizeUser(updated),
+  });
 });
 
-// Modify Student Subscription
+// Update Student Subscription Duration / Plan
 app.patch('/api/students/:id/subscription', authenticateUser, requireOwner, (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
   const { durationDays, planName, status } = req.body;
-
-  const student = db.findUserById(id);
-  if (!student) {
+  const targetUser = db.findUserById(req.params.id);
+  if (!targetUser) {
     return res.status(404).json({ error: 'الطالب غير موجود' });
   }
 
@@ -331,218 +336,192 @@ app.patch('/api/students/:id/subscription', authenticateUser, requireOwner, (req
   const expiresAt = new Date();
   expiresAt.setDate(now.getDate() + (parseInt(durationDays, 10) || 30));
 
-  const updated = db.updateUser(id, {
-    status: 'active',
+  const updated = db.updateUser(targetUser.id, {
+    status: (status as any) || 'active',
     subscription: {
-      status: status || 'active',
+      status: (status as any) || 'active',
       startsAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
-      planName: planName || `اشتراك يدوي (${durationDays} يوم)`,
+      planName: planName || targetUser.subscription?.planName || 'اشتراك معتمد',
     },
   });
 
   db.logAudit(
-    'تعديل اشتراك طالب',
+    'تعديل مدة اشتراك طالب',
     req.user!.fullName,
-    `تم تحديث اشتراك الطالب ${student.fullName} لمدة ${durationDays} يوم بنجاح.`
+    `تم تجديد/تعديل اشتراك الطالب ${targetUser.fullName} لمدة ${durationDays} يوم بنجاح.`
   );
 
-  return res.json({ message: 'تم تحديث الاشتراك بنجاح', student: sanitizeUser(updated!) });
+  return res.json({
+    message: 'تم تحديث بيانات اشتراك الطالب بنجاح',
+    student: sanitizeUser(updated!),
+  });
 });
 
-// Delete Student
+// Delete Student Account
 app.delete('/api/students/:id', authenticateUser, requireOwner, (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
-  const student = db.findUserById(id);
-  if (!student) {
+  const target = db.findUserById(req.params.id);
+  if (!target) {
     return res.status(404).json({ error: 'الطالب غير موجود' });
   }
 
-  if (student.role === 'owner') {
-    return res.status(400).json({ error: 'لا يمكن حذف حساب المالك' });
+  if (target.role === 'owner') {
+    return res.status(403).json({ error: 'لا يمكن حذف حساب المالك الرئيسي للمنصة' });
   }
 
-  db.deleteUser(id);
-  db.logAudit('حذف حساب طالب', req.user!.fullName, `تم حذف حساب الطالب: ${student.fullName} (${student.phone})`);
+  db.deleteUser(req.params.id);
+  db.logAudit('حذف حساب طالب', req.user!.fullName, `تم حذف حساب الطالب: ${target.fullName} (${target.phone})`);
+
   return res.json({ message: 'تم حذف حساب الطالب بنجاح' });
 });
 
-// Activation Codes (List & Create & Revoke)
+// Activation Codes Endpoints
 app.get('/api/activation-codes', authenticateUser, requireOwner, (_req: Request, res: Response) => {
-  return res.json({ codes: db.getAllActivationCodes() });
+  const codes = db.getAllActivationCodes();
+  return res.json({ codes });
 });
 
 app.post('/api/activation-codes', authenticateUser, requireOwner, (req: AuthenticatedRequest, res: Response) => {
   const { prefix = 'MECH', durationDays = 180, planName = 'اشتراك فصلي', count = 1 } = req.body;
+  const numCount = Math.min(Math.max(parseInt(count, 10) || 1, 1), 50);
 
-  const generatedList: ActivationCode[] = [];
-  const qty = Math.min(Math.max(parseInt(count, 10) || 1, 1), 20);
+  const newCodes: ActivationCode[] = [];
+  const now = new Date().toISOString();
 
-  for (let i = 0; i < qty; i++) {
-    const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    const codeStr = `${prefix.trim().toUpperCase()}-${randomHex}-${randomNum}`;
-
-    const newCode: ActivationCode = {
-      id: `code-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 5)}`,
+  for (let i = 0; i < numCount; i++) {
+    const randomSuffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const codeStr = `${prefix.toUpperCase().trim()}-${randomSuffix}`;
+    const codeItem: ActivationCode = {
+      id: `code-${Date.now()}-${i}-${randomSuffix}`,
       code: codeStr,
       durationDays: parseInt(durationDays, 10) || 180,
-      planName: planName || 'اشتراك ميكاترونكس',
-      createdAt: new Date().toISOString(),
+      planName: planName.trim(),
+      createdAt: now,
       status: 'available',
     };
-
-    db.addActivationCode(newCode);
-    generatedList.push(newCode);
+    db.addActivationCode(codeItem);
+    newCodes.push(codeItem);
   }
 
   db.logAudit(
-    'إنشاء رموز تفعيل',
+    'إنشاء رموز تفعيل جديدة',
     req.user!.fullName,
-    `تم توليد ${qty} رمز تفعيل جديد بنجاح (مدة: ${durationDays} يوم).`
+    `تم توليد ${newCodes.length} رمز تفعيل جديد للمنصة بخطة (${planName}).`
   );
 
-  return res.status(201).json({ message: `تم توليد ${qty} رمز تفعيل بنجاح`, codes: generatedList });
+  return res.status(201).json({
+    message: `تم توليد ${newCodes.length} رمز تفعيل بنجاح`,
+    codes: newCodes,
+  });
 });
 
 app.patch('/api/activation-codes/:id/revoke', authenticateUser, requireOwner, (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
-  const updated = db.updateActivationCode(id, { status: 'revoked' });
+  const updated = db.updateActivationCode(req.params.id, { status: 'revoked' });
   if (!updated) {
     return res.status(404).json({ error: 'الرمز غير موجود' });
   }
 
-  db.logAudit('إلغاء رمز تفعيل', req.user!.fullName, `تم إلغاء الرمز: ${updated.code}`);
-  return res.json({ message: 'تم إلغاء الرمز بنجاح', code: updated });
+  db.logAudit('إلغاء رمز تفعيل', req.user!.fullName, `تم تعطيل الرمز ${updated.code}`);
+  return res.json({ message: 'تم إبطال رمز التفعيل بنجاح', code: updated });
 });
 
-// Experiments Management
-app.get('/api/experiments', (req: Request, res: Response) => {
-  // Check if owner token is present
-  const authHeader = req.headers.authorization;
-  let isOwnerUser = false;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-    const payload = verifyToken(token);
-    if (payload && payload.role === 'owner') {
-      isOwnerUser = true;
-    }
-  }
-
-  const list = isOwnerUser ? db.getAllExperiments() : db.getPublishedExperiments();
-  return res.json({ experiments: list });
+// Experiments Endpoints
+app.get('/api/experiments', (_req: Request, res: Response) => {
+  const experiments = db.getPublishedExperiments();
+  return res.json({ experiments });
 });
 
 app.post('/api/experiments', authenticateUser, requireOwner, (req: AuthenticatedRequest, res: Response) => {
   const expData = req.body;
-  if (!expData.title || !expData.objective) {
-    return res.status(400).json({ error: 'بيانات التجربة غير مكتملة' });
+  if (!expData.title) {
+    return res.status(400).json({ error: 'عنوان التجربة مطلوب' });
   }
 
   const newExp = {
     ...expData,
     id: `exp-${Date.now()}`,
-    number: db.getAllExperiments().length + 1,
-    isPublished: expData.isPublished !== false,
+    isPublished: true,
   };
 
   db.saveExperiment(newExp);
-  db.logAudit('إضافة تجربة جديدة', req.user!.fullName, `تمت إضافة التجربة: ${newExp.title}`);
+  db.logAudit('إضافة تجربة معملية جديدة', req.user!.fullName, `تمت إضافة التجربة: ${newExp.title}`);
+
   return res.status(201).json({ message: 'تمت إضافة التجربة بنجاح', experiment: newExp });
 });
 
 app.put('/api/experiments/:id', authenticateUser, requireOwner, (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
-  const existing = db.getExperimentById(id);
-  if (!existing) {
-    return res.status(404).json({ error: 'التجربة غير موجودة' });
-  }
-
-  const updatedExp = { ...existing, ...req.body, id };
-  db.saveExperiment(updatedExp);
-  db.logAudit('تعديل تجربة', req.user!.fullName, `تم تعديل التجربة: ${updatedExp.title}`);
-  return res.json({ message: 'تم تحديث التجربة بنجاح', experiment: updatedExp });
+  const updated = db.saveExperiment({ ...req.body, id: req.params.id });
+  db.logAudit('تعديل تجربة معملية', req.user!.fullName, `تم تعديل التجربة: ${updated.title}`);
+  return res.json({ message: 'تم حفظ التجربة بنجاح', experiment: updated });
 });
 
 app.delete('/api/experiments/:id', authenticateUser, requireOwner, (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
-  const existing = db.getExperimentById(id);
-  if (!existing) {
-    return res.status(404).json({ error: 'التجربة غير موجودة' });
-  }
-
-  db.deleteExperiment(id);
-  db.logAudit('حذف تجربة', req.user!.fullName, `تم حذف التجربة: ${existing.title}`);
+  db.deleteExperiment(req.params.id);
+  db.logAudit('حذف تجربة معملية', req.user!.fullName, `تم حذف التجربة رقم: ${req.params.id}`);
   return res.json({ message: 'تم حذف التجربة بنجاح' });
 });
 
-// Quiz Submission with Server-Side Validation
+// Quiz Submission & Evaluation
 app.post('/api/experiments/:id/quiz', authenticateUser, (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { answers } = req.body; // map of { [questionId]: selectedOptionIndex }
-
-    const exp = db.getExperimentById(id);
-    if (!exp) {
-      return res.status(404).json({ error: 'التجربة غير موجودة' });
-    }
-
-    if (!exp.quiz || exp.quiz.length === 0) {
-      return res.status(400).json({ error: 'لا يوجد اختبار مخصص لهذه التجربة' });
-    }
-
-    let score = 0;
-    const results = exp.quiz.map(q => {
-      const selected = answers ? answers[q.id] : undefined;
-      const isCorrect = selected === q.correctIndex;
-      if (isCorrect) score++;
-
-      return {
-        questionId: q.id,
-        questionText: q.question,
-        options: q.options,
-        selectedIndex: selected,
-        correctIndex: q.correctIndex,
-        isCorrect,
-        explanation: q.explanation,
-      };
-    });
-
-    const total = exp.quiz.length;
-    const percentage = Math.round((score / total) * 100);
-
-    const attempt = {
-      id: `attempt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      userId: req.user!.id,
-      userName: req.user!.fullName,
-      experimentId: id,
-      score,
-      totalQuestions: total,
-      percentage,
-      answers: answers || {},
-      submittedAt: new Date().toISOString(),
-    };
-
-    db.recordQuizAttempt(attempt);
-
-    return res.json({
-      message: 'تم تصحيح الاختبار بنجاح',
-      score,
-      total,
-      percentage,
-      passed: percentage >= 60,
-      details: results,
-    });
-  } catch (err) {
-    return res.status(500).json({ error: 'حدث خطأ أثناء تصحيح الاختبار' });
+  const exp = db.getExperimentById(req.params.id);
+  if (!exp) {
+    return res.status(404).json({ error: 'التجربة غير موجودة' });
   }
+
+  if (!exp.quiz || exp.quiz.length === 0) {
+    return res.status(400).json({ error: 'لا يوجد اختبار مخصص لهذه التجربة' });
+  }
+
+  const { answers = {} } = req.body; // e.g., { [questionId]: selectedIndex }
+  let score = 0;
+  const total = exp.quiz.length;
+
+  const details = exp.quiz.map((q: any) => {
+    const selected = answers[q.id];
+    const isCorrect = selected === q.correctAnswer;
+    if (isCorrect) score++;
+
+    return {
+      questionId: q.id,
+      questionText: q.question,
+      options: q.options,
+      selectedIndex: selected,
+      correctIndex: q.correctAnswer,
+      isCorrect,
+      explanation: q.explanation || '',
+    };
+  });
+
+  const percentage = Math.round((score / total) * 100);
+  const passed = percentage >= 60;
+
+  db.recordQuizAttempt({
+    id: `quiz-att-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    userId: req.user!.id,
+    userName: req.user!.fullName,
+    experimentId: exp.id,
+    score,
+    totalQuestions: total,
+    percentage,
+    answers,
+    submittedAt: new Date().toISOString(),
+  });
+
+  return res.json({
+    message: passed ? 'مبروك! لقد اجتزت الاختبار بنجاح' : 'للأسف لم تجتز الاختبار، يرجى مراجعة التجربة والمحاولة مجددًا',
+    score,
+    total,
+    percentage,
+    passed,
+    details,
+  });
 });
 
-// Saved Circuits Management
+// Saved Circuits
 app.post('/api/circuits/save', authenticateUser, (req: AuthenticatedRequest, res: Response) => {
   const { id, title, description, elements, wires } = req.body;
-  if (!title || !elements) {
-    return res.status(400).json({ error: 'بيانات الدائرة غير مكتملة' });
+  if (!title) {
+    return res.status(400).json({ error: 'عنوان الدائرة مطلوب' });
   }
 
   const now = new Date().toISOString();
@@ -603,6 +582,11 @@ app.put('/api/settings', authenticateUser, requireOwner, (req: AuthenticatedRequ
 // 3. Vite Middleware / Production Static Serve
 // ==========================================
 async function startServer() {
+  // If running inside a serverless environment (like Vercel Serverless Function), do not listen on port
+  if (process.env.VERCEL) {
+    return;
+  }
+
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
@@ -623,6 +607,16 @@ async function startServer() {
   });
 }
 
-startServer().catch(err => {
-  console.error('Failed to start server:', err);
-});
+// Only start standalone server when executed directly as script, not when imported as serverless function
+const isMainModule = process.argv[1] && (
+  process.argv[1].endsWith('server.ts') || 
+  process.argv[1].endsWith('server.js')
+);
+
+if (isMainModule && !process.env.VERCEL) {
+  startServer().catch(err => {
+    console.error('Failed to start server:', err);
+  });
+}
+
+export default app;

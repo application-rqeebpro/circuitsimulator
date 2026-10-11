@@ -90,12 +90,21 @@ export interface DatabaseSchema {
   };
 }
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+// Determine writable directory for serverless environments (like Vercel /tmp)
+const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const DATA_DIR = isServerless 
+  ? path.resolve('/tmp', 'circuitsimulator-data')
+  : path.resolve(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+const BUNDLED_DB_FILE = path.resolve(process.cwd(), 'data', 'db.json');
 
 // Ensure data folder exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Could not create DATA_DIR, will use in-memory fallback:', e);
 }
 
 // Password hashing helpers
@@ -270,9 +279,22 @@ export class Database {
         const raw = fs.readFileSync(DB_FILE, 'utf8');
         return JSON.parse(raw);
       } catch (err) {
-        console.error('Error reading db.json, generating default:', err);
+        console.error('Error reading DB_FILE, trying fallback:', err);
       }
     }
+
+    // If running on serverless, copy initial bundled data/db.json if it exists
+    if (fs.existsSync(BUNDLED_DB_FILE)) {
+      try {
+        const raw = fs.readFileSync(BUNDLED_DB_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        this.saveDirect(parsed);
+        return parsed;
+      } catch (err) {
+        console.error('Error reading BUNDLED_DB_FILE, generating default:', err);
+      }
+    }
+
     const initial = getInitialDatabase();
     this.saveDirect(initial);
     return initial;

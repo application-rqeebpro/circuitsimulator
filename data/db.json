@@ -47,9 +47,67 @@
         "expiresAt": "2027-04-09T17:34:02.591Z",
         "planName": "فصل دراسي"
       }
+    },
+    {
+      "id": "std-1791747480968-473d08",
+      "fullName": "عبدالرقيب فرج",
+      "phone": "773557771",
+      "university": "الجامعة الإماراتية الدولية",
+      "studyLevel": "السنة الأولى",
+      "role": "student",
+      "status": "active",
+      "passwordHash": "214ef124c87a971a51ed7c74a8b5372e2bc6511d9805a886562f38f494f1580c4c71cf44bc119028ffb388bc3c50f9bf9ed245014d129bf10c49a1ebd11355dd",
+      "salt": "1406f5e8409d23bb60a63ca06b878ed4",
+      "createdAt": "2026-10-11T19:38:00.968Z",
+      "subscription": {
+        "status": "active",
+        "startsAt": "2026-10-11T19:38:00.968Z",
+        "expiresAt": "2026-10-25T19:38:00.968Z",
+        "planName": "فترة تجريبية (14 يوم)"
+      }
     }
   ],
   "activationCodes": [
+    {
+      "id": "code-1791747408038-4-acw",
+      "code": "MECH-EIU-72951E-2254",
+      "durationDays": 1,
+      "planName": "اشتراك فصلي (180 يوم)",
+      "createdAt": "2026-10-11T19:36:48.038Z",
+      "status": "available"
+    },
+    {
+      "id": "code-1791747408037-3-zhb",
+      "code": "MECH-EIU-149EEF-6328",
+      "durationDays": 1,
+      "planName": "اشتراك فصلي (180 يوم)",
+      "createdAt": "2026-10-11T19:36:48.037Z",
+      "status": "available"
+    },
+    {
+      "id": "code-1791747408036-2-om2",
+      "code": "MECH-EIU-1A923E-9467",
+      "durationDays": 1,
+      "planName": "اشتراك فصلي (180 يوم)",
+      "createdAt": "2026-10-11T19:36:48.036Z",
+      "status": "available"
+    },
+    {
+      "id": "code-1791747408035-1-2yv",
+      "code": "MECH-EIU-85EA5F-5970",
+      "durationDays": 1,
+      "planName": "اشتراك فصلي (180 يوم)",
+      "createdAt": "2026-10-11T19:36:48.035Z",
+      "status": "available"
+    },
+    {
+      "id": "code-1791747408034-0-n7h",
+      "code": "MECH-EIU-D59AC8-4331",
+      "durationDays": 1,
+      "planName": "اشتراك فصلي (180 يوم)",
+      "createdAt": "2026-10-11T19:36:48.034Z",
+      "status": "available"
+    },
     {
       "id": "code-1",
       "code": "EIU-MECH-2026",
@@ -2214,6 +2272,55 @@
   "quizAttempts": [],
   "auditLogs": [
     {
+      "id": "log-1791753681132-r79wj",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-11T21:21:21.132Z"
+    },
+    {
+      "id": "log-1791749342565-s6hm6",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-11T20:09:02.565Z"
+    },
+    {
+      "id": "log-1791748850080-ny0a0",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-11T20:00:50.080Z"
+    },
+    {
+      "id": "log-1791747480969-qskfx",
+      "action": "تسجيل طالب جديد",
+      "performedBy": "عبدالرقيب فرج",
+      "details": "تم تسجيل الطالب بنجاح برقم: 773557771",
+      "timestamp": "2026-10-11T19:38:00.969Z"
+    },
+    {
+      "id": "log-1791747408038-47oet",
+      "action": "إنشاء رموز تفعيل",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم توليد 5 رمز تفعيل جديد بنجاح (مدة: 1 يوم).",
+      "timestamp": "2026-10-11T19:36:48.038Z"
+    },
+    {
+      "id": "log-1791747361649-k7dqs",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-11T19:36:01.649Z"
+    },
+    {
+      "id": "log-1791744324337-ptfsi",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-11T18:45:24.337Z"
+    },
+    {
       "id": "log-1",
       "action": "تهيئة النظام",
       "performedBy": "النظام الآلي",
@@ -2264,6 +2371,6 @@
     ]
   },
   "stats": {
-    "simulationRunsCount": 15
+    "simulationRunsCount": 27
   }
 }
