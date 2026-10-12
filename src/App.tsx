@@ -24,6 +24,7 @@ import { AuthModals } from './components/AuthModals';
 import { ColorCodeModal } from './components/ColorCodeModal';
 import { OscilloscopeModal } from './components/OscilloscopeModal';
 import { InteractiveMultimeter, ProbeTarget } from './components/InteractiveMultimeter';
+import { ApiNotificationToast } from './components/ApiNotificationToast';
 
 // Icons
 import { 
@@ -824,6 +825,9 @@ export default function App() {
         isSimulating={isSimulating}
         onUpdateElement={handleUpdateElement}
       />
+
+      {/* 6. Global Server/API Notifications */}
+      <ApiNotificationToast />
 
     </div>
   );
