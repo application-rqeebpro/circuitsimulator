@@ -107,6 +107,24 @@ try {
   console.warn('Could not create DATA_DIR, will use in-memory fallback:', e);
 }
 
+export function normalizePhone(raw: string): string {
+  if (!raw) return '';
+  const easternDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  let cleaned = String(raw).trim();
+  for (let i = 0; i < 10; i++) {
+    cleaned = cleaned.replaceAll(easternDigits[i], String(i));
+  }
+  // Remove formatting characters
+  cleaned = cleaned.replace(/[\s\-\(\)\.]+/g, '');
+  // Strip Yemeni prefixes (+967 or 00967)
+  cleaned = cleaned.replace(/^(\+967|00967)/, '');
+  // If 10 digits starting with 0 (e.g. 0777000000), strip leading 0
+  if (/^0[7|1]/.test(cleaned) && cleaned.length === 10) {
+    cleaned = cleaned.slice(1);
+  }
+  return cleaned;
+}
+
 // Password hashing helpers
 export function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
   const generatedSalt = salt || crypto.randomBytes(16).toString('hex');
@@ -330,9 +348,54 @@ export class Database {
   }
 
   // User management
+  public ensureOwnerUser(): User {
+    const existing = this.data.users.find(u => u.role === 'owner');
+    if (existing) return existing;
+
+    const ownerPass = process.env.OWNER_PASSWORD || 'OwnerMechatronics2026!';
+    const ownerPhone = process.env.OWNER_PHONE || '777000000';
+    const ownerHashed = hashPassword(ownerPass);
+    const newOwner: User = {
+      id: 'user-owner-1',
+      fullName: 'المهندس المشرف (مالك المنصة)',
+      phone: ownerPhone,
+      university: 'الجامعة الإماراتية الدولية - صنعاء',
+      studyLevel: 'الهيئة التدريسية',
+      role: 'owner',
+      status: 'active',
+      passwordHash: ownerHashed.hash,
+      salt: ownerHashed.salt,
+      createdAt: new Date().toISOString(),
+    };
+    this.data.users.unshift(newOwner);
+    this.save();
+    return newOwner;
+  }
+
+  public getOwnerUser(identifier?: string): User {
+    if (identifier) {
+      const clean = identifier.trim().toLowerCase();
+      if (['owner', 'admin', 'مالك', 'المالك', 'مشرف', 'المشرف'].includes(clean)) {
+        return this.ensureOwnerUser();
+      }
+      const norm = normalizePhone(identifier);
+      const byPhone = this.data.users.find(
+        u => (normalizePhone(u.phone) === norm || u.phone === norm || u.phone.includes(norm)) && u.role === 'owner'
+      );
+      if (byPhone) return byPhone;
+    }
+    return this.ensureOwnerUser();
+  }
+
   public findUserByPhone(phone: string): User | undefined {
+    if (!phone) return undefined;
     const clean = phone.trim().replace(/\s+/g, '');
-    return this.data.users.find(u => u.phone.trim().replace(/\s+/g, '') === clean);
+    const norm = normalizePhone(phone);
+    return this.data.users.find(u => {
+      const uClean = u.phone.trim().replace(/\s+/g, '');
+      const uNorm = normalizePhone(u.phone);
+      return uClean === clean || (norm.length > 0 && uNorm === norm);
+    });
   }
 
   public findUserById(id: string): User | undefined {

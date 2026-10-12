@@ -127,116 +127,40 @@ class ApiClient {
         controller.abort();
       }, timeoutMs);
 
+      let response: Response;
       try {
-        const response = await fetch(endpoint, {
+        response = await fetch(endpoint, {
           ...options,
           headers,
           signal: controller.signal,
         });
-
-        clearTimeout(timeoutId);
-
-        // Safely parse JSON response or handle empty body
-        let data: any = null;
-        const contentType = response.headers.get('content-type') || '';
-        const text = await response.text();
-
-        if (text && text.trim().length > 0) {
-          if (contentType.includes('application/json')) {
-            try {
-              data = JSON.parse(text);
-            } catch (parseErr) {
-              console.warn(`[API] JSON parse warning on ${endpoint}:`, parseErr);
-              data = { raw: text };
-            }
-          } else {
-            // HTML or plaintext (e.g., 404/502 Vercel error page)
-            try {
-              data = JSON.parse(text);
-            } catch {
-              data = { message: text.length > 200 ? `${text.slice(0, 200)}...` : text };
-            }
-          }
-        } else {
-          // Empty response body (e.g. 204 No Content or empty 200)
-          data = {};
-        }
-
-        if (!response.ok) {
-          const status = response.status;
-          let errorMessage = data?.error || data?.message;
-
-          if (!errorMessage) {
-            if (status === 401) {
-              errorMessage = 'انتهت صلاحية الجلسة أو يجب تسجيل الدخول مجددًا.';
-            } else if (status === 403) {
-              errorMessage = 'غير مصرح لك بالوصول إلى هذا المحتوى.';
-            } else if (status === 404) {
-              errorMessage = 'الخدمة المطلوبة غير متوفرة على الخادم.';
-            } else if (status >= 500) {
-              errorMessage = 'تعذر الاتصال بالخادم الداخلي أو حدث خطأ مؤقت.';
-            } else {
-              errorMessage = `فشل الطلب مع رمز الحالة (${status}).`;
-            }
-          }
-
-          console.error(`[API Error] HTTP ${status} on ${endpoint}:`, {
-            endpoint,
-            status,
-            data,
-          });
-
-          // Check if this error is retryable (502, 503, 504 server errors)
-          const isServerUnavailable = status === 502 || status === 503 || status === 504;
-          if (isServerUnavailable && attempt <= maxRetries) {
-            const delay = retryDelayMs * Math.pow(1.5, attempt - 1);
-            console.warn(`[API Retry] Server returned ${status}. Retrying (${attempt}/${maxRetries}) in ${delay}ms...`);
-            await new Promise((r) => setTimeout(r, delay));
-            continue;
-          }
-
-          if (!silentNotification) {
-            this.notify({
-              type: 'error',
-              message: errorMessage,
-              details: `HTTP ${status} - ${endpoint}`,
-            });
-          }
-
-          throw new Error(errorMessage);
-        }
-
-        // Successful response
-        return data as T;
       } catch (err: any) {
         clearTimeout(timeoutId);
-
         const isAbort = err.name === 'AbortError' || controller.signal.aborted;
         const isNetworkFail = isAbort || err instanceof TypeError || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError');
-
         lastError = err;
-
-        console.error(`[API Attempt ${attempt}/${maxRetries + 1} Failed] ${endpoint}:`, {
-          error: err.message,
-          isTimeout: isAbort,
-          isNetworkFail,
-        });
 
         // Retry network failures and timeouts if attempts remain
         if (isNetworkFail && attempt <= maxRetries) {
           const delay = retryDelayMs * Math.pow(1.5, attempt - 1);
-          console.warn(`[API Retry] Network timeout/drop detected. Retrying ${endpoint} (${attempt}/${maxRetries}) in ${delay}ms...`);
+          console.warn(`[API Retry] Network issue on ${endpoint}. Retrying (${attempt}/${maxRetries}) in ${delay}ms...`);
           await new Promise((r) => setTimeout(r, delay));
           continue;
         }
 
-        // Exhausted retries or non-retryable error
+        // Exhausted retries for network drops
         let friendlyMessage = err.message;
         if (isAbort) {
-          friendlyMessage = 'انتهت مهلة انتظار الخادم. يرجى التحقق من اتصالك بالإنترنت.';
+          friendlyMessage = 'انتهت مهلة انتظار الخادم. يرجى التحقق من الاتصال بالإنترنت.';
         } else if (isNetworkFail) {
           friendlyMessage = 'تعذر الاتصال بالخادم. يرجى التأكد من تشغيل الخادم وتوفر الإنترنت.';
         }
+
+        console.error(`[API Network Error] ${endpoint}:`, {
+          error: friendlyMessage,
+          isTimeout: isAbort,
+          isNetworkFail,
+        });
 
         if (!silentNotification) {
           this.notify({
@@ -248,6 +172,81 @@ class ApiClient {
 
         throw new Error(friendlyMessage);
       }
+
+      clearTimeout(timeoutId);
+
+      // Safely parse JSON response or handle empty body
+      let data: any = null;
+      const contentType = response.headers.get('content-type') || '';
+      const text = await response.text();
+
+      if (text && text.trim().length > 0) {
+        if (contentType.includes('application/json')) {
+          try {
+            data = JSON.parse(text);
+          } catch (parseErr) {
+            console.warn(`[API] JSON parse warning on ${endpoint}:`, parseErr);
+            data = { raw: text };
+          }
+        } else {
+          // HTML or plaintext (e.g., 404/502 Vercel error page)
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = { message: text.length > 200 ? `${text.slice(0, 200)}...` : text };
+          }
+        }
+      } else {
+        // Empty response body
+        data = {};
+      }
+
+      if (!response.ok) {
+        const status = response.status;
+        let errorMessage = data?.error || data?.message;
+
+        if (!errorMessage) {
+          if (status === 401) {
+            errorMessage = 'بيانات الاعتماد غير صحيحة أو انتهت الجلسة.';
+          } else if (status === 403) {
+            errorMessage = 'غير مصرح لك بالوصول إلى هذا المحتوى.';
+          } else if (status === 404) {
+            errorMessage = 'الخدمة المطلوبة غير متوفرة على الخادم.';
+          } else if (status >= 500) {
+            errorMessage = 'تعذر الاتصال بالخادم الداخلي أو حدث خطأ مؤقت.';
+          } else {
+            errorMessage = `فشل الطلب مع رمز الحالة (${status}).`;
+          }
+        }
+
+        // Check if this error is retryable (502, 503, 504 server gateway drops)
+        const isServerUnavailable = status === 502 || status === 503 || status === 504;
+        if (isServerUnavailable && attempt <= maxRetries) {
+          const delay = retryDelayMs * Math.pow(1.5, attempt - 1);
+          console.warn(`[API Retry] Server returned ${status}. Retrying (${attempt}/${maxRetries}) in ${delay}ms...`);
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+
+        // Log appropriately: warn for 4xx client errors, error for 5xx server crashes
+        if (status >= 500) {
+          console.error(`[API Server Error] HTTP ${status} on ${endpoint}:`, { endpoint, status, data });
+          if (!silentNotification) {
+            this.notify({
+              type: 'error',
+              message: errorMessage,
+              details: `HTTP ${status} - ${endpoint}`,
+            });
+          }
+        } else {
+          console.warn(`[API HTTP ${status}] ${endpoint}:`, errorMessage);
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      // Successful response
+      return data as T;
     }
 
     throw lastError || new Error('حدث خطأ غير متوقع في الاتصال بالخادم.');
@@ -261,28 +260,40 @@ class ApiClient {
     studyLevel: string;
     password: string;
   }): Promise<{ message: string; user: UserProfile; token: string }> {
-    const res = await this.request<{ message: string; user: UserProfile; token: string }>('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    const res = await this.request<{ message: string; user: UserProfile; token: string }>(
+      '/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+      { maxRetries: 0, silentNotification: true }
+    );
     this.setToken(res.token);
     return res;
   }
 
   async login(body: { phone: string; password: string }): Promise<{ message: string; user: UserProfile; token: string }> {
-    const res = await this.request<{ message: string; user: UserProfile; token: string }>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    const res = await this.request<{ message: string; user: UserProfile; token: string }>(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+      { maxRetries: 0, silentNotification: true }
+    );
     this.setToken(res.token);
     return res;
   }
 
   async ownerLogin(body: { phone: string; password: string }): Promise<{ message: string; user: UserProfile; token: string }> {
-    const res = await this.request<{ message: string; user: UserProfile; token: string }>('/api/auth/owner-login', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    const res = await this.request<{ message: string; user: UserProfile; token: string }>(
+      '/api/auth/owner-login',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+      { maxRetries: 0, silentNotification: true }
+    );
     this.setToken(res.token);
     return res;
   }

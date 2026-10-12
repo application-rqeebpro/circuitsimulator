@@ -116,6 +116,21 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
     }
   };
 
+  // Quick Demo Owner Login Handler
+  const handleQuickOwnerLogin = async () => {
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      const res = await api.ownerLogin({ phone: '777000000', password: 'OwnerMechatronics2026!' });
+      onAuthSuccess(res.user);
+      onClose();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'فشل التحقق من هوية المالك');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
 
   // Student Registration Handler
@@ -304,6 +319,35 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
                 <span>{errorMsg}</span>
               </div>
             )}
+
+            {/* Quick Demo Owner Login Button */}
+            <div className="mb-4 space-y-2">
+              <button
+                type="button"
+                onClick={handleQuickOwnerLogin}
+                disabled={loading}
+                className="w-full py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-xs text-amber-300 font-semibold transition-all flex items-center justify-center gap-2 shadow-sm"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                <span>دخول سريع فوري كمالك المنصة</span>
+              </button>
+              <div className="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-[11px] text-slate-300 flex flex-col gap-1">
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>بيانات الدخول الافتراضية للمالك:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhone('777000000');
+                      setPassword('OwnerMechatronics2026!');
+                    }}
+                    className="text-amber-400 hover:underline font-bold text-[10px]"
+                  >
+                    تعبئة الحقول
+                  </button>
+                </div>
+                <div className="font-mono text-slate-200 dir-ltr text-left text-[11px]">الهاتف: 777000000 | كلمة المرور: OwnerMechatronics2026! أو admin</div>
+              </div>
+            </div>
 
             <form onSubmit={handleOwnerLogin} className="space-y-4">
               <div>
