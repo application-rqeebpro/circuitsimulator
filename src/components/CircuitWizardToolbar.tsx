@@ -62,6 +62,7 @@ interface CircuitWizardToolbarProps {
   onOpenAssistant: () => void;
   onOpenExperimentsDrawer: () => void;
   onOpenGallery?: () => void;
+  isGalleryOpen?: boolean;
 }
 
 export const CircuitWizardToolbar: React.FC<CircuitWizardToolbarProps> = ({
@@ -98,6 +99,7 @@ export const CircuitWizardToolbar: React.FC<CircuitWizardToolbarProps> = ({
   onOpenAssistant,
   onOpenExperimentsDrawer,
   onOpenGallery,
+  isGalleryOpen = false,
 }) => {
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
 
@@ -192,11 +194,15 @@ export const CircuitWizardToolbar: React.FC<CircuitWizardToolbarProps> = ({
           {onOpenGallery && (
             <button
               onClick={onOpenGallery}
-              className="lg:hidden px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors active:scale-95"
-              title="فتح مكتبة العناصر الإلكترونية"
+              className={`lg:hidden px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 ${
+                isGalleryOpen
+                  ? 'bg-emerald-500 text-white shadow-emerald-500/30 ring-2 ring-emerald-300 font-extrabold'
+                  : 'bg-emerald-700/80 hover:bg-emerald-600 text-emerald-100'
+              }`}
+              title={isGalleryOpen ? 'إخفاء معرض المكونات' : 'عرض المكونات على يمين الشاشة واللوحة على اليسار'}
             >
               <Layers className="w-4 h-4" />
-              <span>المكونات</span>
+              <span>{isGalleryOpen ? 'المكونات (يمين)' : 'المكونات'}</span>
             </button>
           )}
 

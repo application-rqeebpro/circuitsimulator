@@ -97,8 +97,8 @@ export default function App() {
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number }>({ x: 140, y: 80 });
   const [canvasScale, setCanvasScale] = useState<number>(1);
 
-  // Digital Multimeter & Probes State
-  const [multimeterOpen, setMultimeterOpen] = useState(true);
+  // Digital Multimeter & Probes State (default closed on mobile so canvas is visible)
+  const [multimeterOpen, setMultimeterOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
   const [redProbe, setRedProbe] = useState<ProbeTarget | null>({
     compId: 'res-init',
     termId: 't1',
@@ -237,8 +237,8 @@ export default function App() {
     const newId = `comp-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
     // Responsive spawn position inside visible left canvas area
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    const baseSpawnX = isMobile ? 40 : 220;
-    const baseSpawnY = isMobile ? 60 : 140;
+    const baseSpawnX = isMobile ? 35 : 220;
+    const baseSpawnY = isMobile ? 55 : 140;
     const step = isMobile ? 25 : 35;
     const newElement: CircuitElement = {
       ...item,
@@ -247,7 +247,10 @@ export default function App() {
       y: baseSpawnY + (elements.length % 5) * step,
     };
     setElements(prev => [...prev, newElement]);
-    setSelectedElementId(newId);
+    // On mobile, keep student in seamless component-adding mode without blocking the left board
+    if (!isMobile) {
+      setSelectedElementId(newId);
+    }
   }, [elements.length]);
 
   const handleDropComponentAt = useCallback((item: Omit<CircuitElement, 'id'>) => {
@@ -355,6 +358,36 @@ export default function App() {
 
       {/* 2. Main Content Route / View */}
       <main className="flex-1 flex flex-col">
+        
+        {/* Pending Approval Notice Banner */}
+        {currentUser?.status === 'pending' && (
+          <div className="bg-amber-950/80 border-b border-amber-500/40 px-4 py-2.5 text-xs text-amber-200 flex flex-wrap items-center justify-center gap-2 sm:gap-4 shadow-inner z-30">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+              <span className="font-medium">
+                سيتم تفعيل حسابك في أقرب وقت، انتظر قليلاً أو تواصل مع المالك مباشرة لتفعيل حسابك على الرقم{' '}
+                <strong className="text-amber-300 font-mono text-sm underline select-all">785502919</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="tel:785502919"
+                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] flex items-center gap-1 shadow-sm transition-all"
+              >
+                <Phone className="w-3 h-3" />
+                <span>اتصال: 785502919</span>
+              </a>
+              <a
+                href={`https://wa.me/967785502919?text=${encodeURIComponent(`مرحباً أستاذ أصيل، لقد سجلت في مختبر الميكاترونكس بالاسم: ${currentUser.fullName} ورقم الهاتف: ${currentUser.phone}، أرجو تفعيل الحساب.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[11px] flex items-center gap-1 shadow-sm transition-all"
+              >
+                <span>واتساب المالك</span>
+              </a>
+            </div>
+          </div>
+        )}
         
         {/* VIEW A: Landing Page */}
         {activeView === 'landing' && (
@@ -632,7 +665,8 @@ export default function App() {
                   onOpenOscilloscope={() => setOscilloscopeModalOpen(true)}
                   onOpenAssistant={() => setWelcomeModalOpen(true)}
                   onOpenExperimentsDrawer={() => setExperimentDrawerOpen(true)}
-                  onOpenGallery={() => setComponentLibraryOpen(true)}
+                  onOpenGallery={() => setComponentLibraryOpen(o => !o)}
+                  isGalleryOpen={componentLibraryOpen}
                 />
 
                 {/* Educational Guidance Banner */}

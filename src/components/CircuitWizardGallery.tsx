@@ -210,6 +210,12 @@ export const CircuitWizardGallery: React.FC<CircuitWizardGalleryProps> = ({
         </div>
       </div>
 
+      {/* Mobile Side-by-Side Hint */}
+      <div className="sm:hidden px-2 py-1 bg-emerald-950/50 border-b border-emerald-500/20 text-[10px] text-emerald-300 font-medium flex items-center justify-between select-none">
+        <span>👈 اضغط للإضافة للوحة</span>
+        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-800/40 text-emerald-200 border border-emerald-500/30">معرض اليمين</span>
+      </div>
+
       {/* Categories Dropdown or Tree Navigation */}
       <div className="p-1.5 sm:p-2 border-b border-slate-800 bg-slate-950/60">
         <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 block mb-1">
