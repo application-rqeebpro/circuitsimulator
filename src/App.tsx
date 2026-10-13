@@ -26,6 +26,15 @@ import { OscilloscopeModal } from './components/OscilloscopeModal';
 import { InteractiveMultimeter, ProbeTarget } from './components/InteractiveMultimeter';
 import { ApiNotificationToast } from './components/ApiNotificationToast';
 
+// Circuit Wizard UI Suite
+import { CircuitWizardMenuBar } from './components/CircuitWizardMenuBar';
+import { CircuitWizardToolbar } from './components/CircuitWizardToolbar';
+import { CircuitWizardGallery } from './components/CircuitWizardGallery';
+import { CircuitWizardStatusBar } from './components/CircuitWizardStatusBar';
+import { CircuitWizardWelcomeModal } from './components/CircuitWizardWelcomeModal';
+import { CircuitWizardTourModal } from './components/CircuitWizardTourModal';
+import { COMPONENT_CATALOG } from './data/componentCatalog';
+
 // Icons
 import { 
   Play, 
@@ -72,7 +81,19 @@ export default function App() {
   const [componentLibraryOpen, setComponentLibraryOpen] = useState(true);
   const [experimentDrawerOpen, setExperimentDrawerOpen] = useState(false);
   const [activeExperiment, setActiveExperiment] = useState<Experiment | null>(EXPERIMENTS_LIST[2]); // Default Ohm's Law
-  const [showExperimentBanner, setShowExperimentBanner] = useState(true);
+  const [showExperimentBanner, setShowExperimentBanner] = useState(false); // Collapsed by default to maximize CAD view
+
+  // Circuit Wizard Signature Display & View Modes
+  const [viewMode, setViewMode] = useState<'schematic' | 'pcb' | 'breadboard'>('schematic');
+  const [displayStyle, setDisplayStyle] = useState<'schematic' | 'realistic'>('schematic');
+  const [showCurrentFlow, setShowCurrentFlow] = useState<boolean>(true);
+  const [showVoltageLevels, setShowVoltageLevels] = useState<boolean>(false);
+  const [showLogicLevels, setShowLogicLevels] = useState<boolean>(false);
+  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [welcomeModalOpen, setWelcomeModalOpen] = useState<boolean>(false);
+  const [tourModalOpen, setTourModalOpen] = useState<boolean>(false);
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number }>({ x: 140, y: 80 });
+  const [canvasScale, setCanvasScale] = useState<number>(1);
 
   // Digital Multimeter & Probes State
   const [multimeterOpen, setMultimeterOpen] = useState(true);
@@ -240,6 +261,45 @@ export default function App() {
       setSelectedElementId(null);
     }
   };
+
+  const handleRotateSelected = useCallback(() => {
+    if (selectedElementId) {
+      setElements(prev => prev.map(el => el.id === selectedElementId ? { ...el, rotation: (el.rotation + 90) % 360 } : el));
+    }
+  }, [selectedElementId]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedElementId) {
+      handleDeleteElement(selectedElementId);
+    }
+  }, [selectedElementId, handleDeleteElement]);
+
+  const handleQuickInsert = useCallback((catIdOrType: string) => {
+    const item = COMPONENT_CATALOG.find(c => c.id === catIdOrType || c.type === catIdOrType);
+    if (item) {
+      handleAddComponentFromLibrary({
+        type: item.type,
+        subType: item.subType,
+        name: item.nameAr,
+        nameEn: item.nameEn,
+        rotation: 0,
+        value: item.defaultValue,
+        unit: item.unit,
+        ratedPower: item.ratedPower,
+        ratedVoltage: item.ratedVoltage,
+        internalResistance: item.internalResistance,
+        tolerancePct: item.tolerancePct,
+        isPolarized: item.isPolarized,
+        dielectricType: item.dielectricType,
+        terminals: item.terminals,
+      });
+    }
+  }, [handleAddComponentFromLibrary]);
+
+  const handleZoomIn = () => setCanvasScale(s => Math.min(s + 0.15, 2.0));
+  const handleZoomOut = () => setCanvasScale(s => Math.max(s - 0.15, 0.5));
+  const handleZoom100 = () => setCanvasScale(1);
+  const handleZoomFit = () => setCanvasScale(1);
 
   const handleLoadExperimentCircuit = (exp: Experiment) => {
     if (exp.defaultCircuit) {
@@ -430,139 +490,98 @@ export default function App() {
               </div>
             ) : (
               <>
-                {/* Simulation Top Control Bar */}
-                <div className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 z-30">
-                  
-                  {/* Left: Telemetry Badges */}
-                  <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto scrollbar-none py-1">
-                    {/* Voltage */}
-                    <div className="px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 text-xs flex items-center gap-2">
-                      <span className="text-slate-400 text-[10px]">الجهد الكلي:</span>
-                      <span className="font-mono-numbers font-bold text-emerald-400 text-sm">
-                        {elements.filter(e => e.type === 'battery' || e.type === 'dc_power_supply').reduce((acc, s) => acc + (s.value || 0), 0)} V
-                      </span>
-                    </div>
+                {/* 1. Circuit Wizard Classic CAD Menu Bar */}
+                <CircuitWizardMenuBar
+                  onNewCircuit={() => {
+                    if (elements.length > 0) {
+                      if (confirm('هل تريد بدء مخطط دائرة جديد ومسح اللوحة الحالية؟')) {
+                        setElements([]);
+                        setWires([]);
+                        setSelectedElementId(null);
+                      }
+                    } else {
+                      setElements([]);
+                      setWires([]);
+                    }
+                  }}
+                  onOpenSample={() => setWelcomeModalOpen(true)}
+                  onSaveCircuit={() => setSavedCircuitsOpen(true)}
+                  onClearCanvas={handleResetCanvas}
+                  onRotateSelected={handleRotateSelected}
+                  onDeleteSelected={handleDeleteSelected}
+                  isSimulating={isSimulating}
+                  onToggleSimulation={() => setIsSimulating(s => !s)}
+                  onStopSimulation={() => setIsSimulating(false)}
+                  viewMode={viewMode}
+                  onChangeViewMode={setViewMode}
+                  displayStyle={displayStyle}
+                  onChangeDisplayStyle={setDisplayStyle}
+                  showCurrentFlow={showCurrentFlow}
+                  onToggleCurrentFlow={() => setShowCurrentFlow(v => !v)}
+                  showVoltageLevels={showVoltageLevels}
+                  onToggleVoltageLevels={() => setShowVoltageLevels(v => !v)}
+                  showLogicLevels={showLogicLevels}
+                  onToggleLogicLevels={() => setShowLogicLevels(v => !v)}
+                  showGrid={showGrid}
+                  onToggleGrid={() => setShowGrid(v => !v)}
+                  onZoomIn={handleZoomIn}
+                  onZoomOut={handleZoomOut}
+                  onZoom100={handleZoom100}
+                  onZoomFit={handleZoomFit}
+                  onOpenMultimeter={() => setMultimeterOpen(true)}
+                  onOpenOscilloscope={() => setOscilloscopeModalOpen(true)}
+                  onOpenColorCode={() => setColorCodeModalOpen(true)}
+                  onOpenAssistant={() => setWelcomeModalOpen(true)}
+                  onOpenTour={() => setTourModalOpen(true)}
+                  onOpenExperimentsGuide={() => setExperimentDrawerOpen(true)}
+                  onOpenVerificationTests={() => setVerificationOpen(true)}
+                  onInsertComponent={handleQuickInsert}
+                  hasSelection={!!selectedElementId}
+                />
 
-                    {/* Current */}
-                    <div className="px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 text-xs flex items-center gap-2">
-                      <span className="text-slate-400 text-[10px]">التيار الكلي:</span>
-                      <span className="font-mono-numbers font-bold text-cyan-400 text-sm">
-                        {simulationResult.totalCurrent >= 1 
-                          ? `${simulationResult.totalCurrent.toFixed(3)} A` 
-                          : `${(simulationResult.totalCurrent * 1000).toFixed(2)} mA`}
-                      </span>
-                    </div>
+                {/* 2. Circuit Wizard CAD Toolbar with Views & Simulation Controls */}
+                <CircuitWizardToolbar
+                  onNewCircuit={() => {
+                    if (confirm('هل تريد إنشاء دائرة جديدة؟')) {
+                      setElements([]);
+                      setWires([]);
+                      setSelectedElementId(null);
+                    }
+                  }}
+                  onOpenSample={() => setWelcomeModalOpen(true)}
+                  onSaveCircuit={() => setSavedCircuitsOpen(true)}
+                  onPrint={() => window.print()}
+                  onRotateSelected={handleRotateSelected}
+                  onDeleteSelected={handleDeleteSelected}
+                  hasSelection={!!selectedElementId}
+                  scale={canvasScale}
+                  onZoomIn={handleZoomIn}
+                  onZoomOut={handleZoomOut}
+                  onZoom100={handleZoom100}
+                  onZoomFit={handleZoomFit}
+                  viewMode={viewMode}
+                  onChangeViewMode={setViewMode}
+                  isSimulating={isSimulating}
+                  onToggleSimulation={() => setIsSimulating(s => !s)}
+                  onStopSimulation={() => setIsSimulating(false)}
+                  displayStyle={displayStyle}
+                  onChangeDisplayStyle={setDisplayStyle}
+                  showCurrentFlow={showCurrentFlow}
+                  onToggleCurrentFlow={() => setShowCurrentFlow(v => !v)}
+                  showVoltageLevels={showVoltageLevels}
+                  onToggleVoltageLevels={() => setShowVoltageLevels(v => !v)}
+                  showLogicLevels={showLogicLevels}
+                  onToggleLogicLevels={() => setShowLogicLevels(v => !v)}
+                  showGrid={showGrid}
+                  onToggleGrid={() => setShowGrid(v => !v)}
+                  onOpenMultimeter={() => setMultimeterOpen(o => !o)}
+                  multimeterOpen={multimeterOpen}
+                  onOpenOscilloscope={() => setOscilloscopeModalOpen(true)}
+                  onOpenAssistant={() => setWelcomeModalOpen(true)}
+                  onOpenExperimentsDrawer={() => setExperimentDrawerOpen(true)}
+                />
 
-                    {/* Power */}
-                    <div className="px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 text-xs flex items-center gap-2">
-                      <span className="text-slate-400 text-[10px]">القدرة الكلية:</span>
-                      <span className="font-mono-numbers font-bold text-amber-400 text-sm">
-                        {simulationResult.totalPower >= 1 
-                          ? `${simulationResult.totalPower.toFixed(2)} W` 
-                          : `${(simulationResult.totalPower * 1000).toFixed(1)} mW`}
-                      </span>
-                    </div>
-
-                    {/* Status Badge */}
-                    <div className="flex items-center gap-1.5">
-                      {simulationResult.shortCircuit ? (
-                        <span className="px-2.5 py-1 rounded-xl bg-red-500/20 border border-red-500/50 text-red-400 text-xs font-bold animate-pulse flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          <span>قصر كهربائي!</span>
-                        </span>
-                      ) : simulationResult.openCircuit ? (
-                        <span className="px-2.5 py-1 rounded-xl bg-slate-800 text-slate-400 text-xs font-medium">
-                          دائرة مفتوحة (لا يمر تيار)
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>دائرة مغلقة وسليمة</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right: Simulation & Experiment Controls */}
-                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                    {/* Start Experiment Button */}
-                    <button
-                      onClick={() => activeExperiment && handleLoadExperimentCircuit(activeExperiment)}
-                      className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-600/25 flex items-center gap-1.5 transition-all"
-                      title="بدء تشغيل وتوصيل التجربة المحددة في مساحة العمل"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-white" />
-                      <span>ابدأ التجربة</span>
-                    </button>
-
-                    {/* Reset Circuit Button */}
-                    <button
-                      onClick={handleResetCanvas}
-                      className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition-colors"
-                      title="إعادة ضبط ومسح الدائرة"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">إعادة ضبط الدائرة</span>
-                    </button>
-
-                    {/* Simulation Toggle */}
-                    <button
-                      onClick={() => setIsSimulating(s => !s)}
-                      className={`py-1.5 px-2.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors ${
-                        isSimulating
-                          ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                          : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                      }`}
-                    >
-                      {isSimulating ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-white" />}
-                      <span>{isSimulating ? 'إيقاف مؤقت' : 'تشغيل'}</span>
-                    </button>
-
-                    {/* Yellow Multimeter Toggle Button */}
-                    <button
-                      onClick={() => setMultimeterOpen(o => !o)}
-                      className={`py-1.5 px-2.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-colors ${
-                        multimeterOpen
-                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow'
-                          : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-                      }`}
-                      title="إظهار / إخفاء جهاز الملتيميتر الرقمي الأصفر"
-                    >
-                      <Gauge className="w-3.5 h-3.5 text-amber-400" />
-                      <span>الملتيميتر الأصفر</span>
-                    </button>
-
-                    {/* Run 3 Test Cases Verification Button */}
-                    <button
-                      onClick={() => setVerificationOpen(true)}
-                      className="py-1.5 px-2.5 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                      title="فحص المحاكاة بالحالات الهندسية الثلاث"
-                    >
-                      <CheckSquare className="w-3.5 h-3.5 text-cyan-400" />
-                      <span className="hidden md:inline">فحص الحالات (3)</span>
-                    </button>
-
-                    {/* Save Circuit Button */}
-                    <button
-                      onClick={() => setSavedCircuitsOpen(true)}
-                      className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 text-xs font-medium flex items-center gap-1 border border-slate-700 transition-colors"
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">حفظ</span>
-                    </button>
-
-                    {/* Experiments Drawer Toggle */}
-                    <button
-                      onClick={() => setExperimentDrawerOpen(true)}
-                      className="py-1.5 px-3 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                    >
-                      <BookOpen className="w-4 h-4" />
-                      <span>دليل التجارب</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Educational Experiment Guidance Banner */}
+                {/* Educational Guidance Banner */}
                 {activeExperiment && showExperimentBanner && (
                   <div className="bg-slate-900/95 border-b border-slate-800 px-4 py-2 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs z-25">
                     <div className="flex items-start gap-2.5">
@@ -625,18 +644,10 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Main Workspace Layout (Canvas + Components Library) */}
+                {/* Main Workspace: Center Canvas + Right Component Gallery (Circuit Wizard standard layout!) */}
                 <div className="flex-1 flex overflow-hidden relative">
                   
-                  {/* Left: Component Library Sidebar */}
-                  <ComponentLibrary
-                    isOpen={componentLibraryOpen}
-                    onToggle={() => setComponentLibraryOpen(o => !o)}
-                    onAddComponent={handleAddComponentFromLibrary}
-                    onOpenColorCodeCalculator={() => setColorCodeModalOpen(true)}
-                  />
-
-                  {/* Center: Circuit Breadboard Canvas */}
+                  {/* Center: Circuit Canvas Workspace */}
                   <div className="flex-1 relative overflow-hidden">
                     <CircuitCanvas
                       elements={elements}
@@ -661,6 +672,13 @@ export default function App() {
                       activeProbePlacing={activeProbePlacing}
                       onSetActiveProbePlacing={setActiveProbePlacing}
                       onOpenMultimeter={() => setMultimeterOpen(true)}
+                      viewMode={viewMode}
+                      displayStyle={displayStyle}
+                      showCurrentFlow={showCurrentFlow}
+                      showVoltageLevels={showVoltageLevels}
+                      showLogicLevels={showLogicLevels}
+                      showGrid={showGrid}
+                      onCursorMove={setCursorPos}
                     />
 
                     {/* Properties Panel for Selected Element */}
@@ -693,7 +711,15 @@ export default function App() {
                     />
                   </div>
 
-                  {/* Right: Experiment Guide Drawer */}
+                  {/* Right: Component Gallery Sidebar (Matches Circuit Wizard exact layout!) */}
+                  <CircuitWizardGallery
+                    isOpen={componentLibraryOpen}
+                    onToggle={() => setComponentLibraryOpen(o => !o)}
+                    onAddComponent={handleAddComponentFromLibrary}
+                    onOpenColorCodeCalculator={() => setColorCodeModalOpen(true)}
+                  />
+
+                  {/* Right Drawer: Experiment Guide Drawer */}
                   <ExperimentDrawer
                     isOpen={experimentDrawerOpen}
                     onClose={() => setExperimentDrawerOpen(false)}
@@ -707,6 +733,18 @@ export default function App() {
                   />
 
                 </div>
+
+                {/* 3. Circuit Wizard Bottom Engineering Status Bar */}
+                <CircuitWizardStatusBar
+                  isSimulating={isSimulating}
+                  simulationResult={simulationResult}
+                  elementsCount={elements.length}
+                  wiresCount={wires.length}
+                  totalVoltage={elements.filter(e => e.type === 'battery' || e.type === 'dc_power_supply').reduce((acc, s) => acc + (s.value || 0), 0)}
+                  cursorPos={cursorPos}
+                  scale={canvasScale}
+                  viewMode={viewMode}
+                />
               </>
             )}
 
@@ -826,7 +864,29 @@ export default function App() {
         onUpdateElement={handleUpdateElement}
       />
 
-      {/* 6. Global Server/API Notifications */}
+      {/* 6. Circuit Wizard Assistant Welcome Modal */}
+      <CircuitWizardWelcomeModal
+        isOpen={welcomeModalOpen}
+        onClose={() => setWelcomeModalOpen(false)}
+        onNewCircuit={() => {
+          setElements([]);
+          setWires([]);
+          setSelectedElementId(null);
+        }}
+        onLoadExperiment={(exp) => {
+          setActiveExperiment(exp);
+          handleLoadExperimentCircuit(exp);
+        }}
+        onStartTour={() => setTourModalOpen(true)}
+      />
+
+      {/* 7. Circuit Wizard Guided Tour Walkthrough Modal */}
+      <CircuitWizardTourModal
+        isOpen={tourModalOpen}
+        onClose={() => setTourModalOpen(false)}
+      />
+
+      {/* 8. Global Server/API Notifications */}
       <ApiNotificationToast />
 
     </div>

@@ -3,13 +3,13 @@
     {
       "id": "user-owner-1",
       "fullName": "المهندس المشرف (مالك المنصة)",
-      "phone": "777000000",
+      "phone": "785502919",
       "university": "الجامعة الإماراتية الدولية - صنعاء",
       "studyLevel": "الهيئة التدريسية",
       "role": "owner",
       "status": "active",
-      "passwordHash": "9f6547143d215a581f340e7130d013a010fe847177d3311bf6b0817ce9ff519538302520e9ed268d67875ad307a1355aec5b1d09cbe52e863801271cc68b6844",
-      "salt": "43d1c4dd272c6413953b4a8b84a06448",
+      "passwordHash": "386a647603472dc2e4b1bbefa9d17b6e7939aaf8124f77490dd06bfb37bb3d795a9fbcc065709d13fdfdf5ca01ec70ad09df13bf07a591d7a9867e5376f169ce",
+      "salt": "d2d8c1891f60366d3a1737a1be87f214",
       "createdAt": "2026-10-11T17:33:42.380Z"
     },
     {
@@ -2272,6 +2272,27 @@
   "quizAttempts": [],
   "auditLogs": [
     {
+      "id": "log-1791816499669-p6oeh",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-12T14:48:19.669Z"
+    },
+    {
+      "id": "log-1791816499662-ufa8w",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-12T14:48:19.662Z"
+    },
+    {
+      "id": "log-1791816499644-pjwkc",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-12T14:48:19.644Z"
+    },
+    {
       "id": "log-1791814557985-0i2bp",
       "action": "تسجيل دخول المالك",
       "performedBy": "المهندس المشرف (مالك المنصة)",
@@ -2406,6 +2427,6 @@
     ]
   },
   "stats": {
-    "simulationRunsCount": 31
+    "simulationRunsCount": 33
   }
 }

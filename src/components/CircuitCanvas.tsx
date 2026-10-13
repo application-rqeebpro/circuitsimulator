@@ -22,7 +22,10 @@ import {
   Thermometer
 } from 'lucide-react';
 import { RealisticComponentGraphic } from './RealisticComponentGraphics';
+import { SchematicSymbol } from './SchematicSymbols';
+import { PCBSymbol } from './PCBSymbols';
 import { ProbeTarget } from './InteractiveMultimeter';
+import { playSwitchClickSound, updateBuzzerSound } from '../engine/audioEffects';
 
 interface CircuitCanvasProps {
   elements: CircuitElement[];
@@ -44,6 +47,13 @@ interface CircuitCanvasProps {
   activeProbePlacing?: 'red' | 'black' | null;
   onSetActiveProbePlacing?: (mode: 'red' | 'black' | null) => void;
   onOpenMultimeter?: () => void;
+  viewMode?: 'schematic' | 'pcb' | 'breadboard';
+  displayStyle?: 'schematic' | 'realistic';
+  showCurrentFlow?: boolean;
+  showVoltageLevels?: boolean;
+  showLogicLevels?: boolean;
+  showGrid?: boolean;
+  onCursorMove?: (pos: { x: number; y: number }) => void;
 }
 
 export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
@@ -66,6 +76,13 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
   activeProbePlacing,
   onSetActiveProbePlacing,
   onOpenMultimeter,
+  viewMode = 'schematic',
+  displayStyle = 'schematic',
+  showCurrentFlow = true,
+  showVoltageLevels = false,
+  showLogicLevels = false,
+  showGrid = true,
+  onCursorMove,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -114,14 +131,30 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
       onUpdateElement(draggingCompId, { x: Math.max(20, snapX), y: Math.max(20, snapY) });
     }
 
-    if (wiringFrom && containerRef.current) {
+    if (containerRef.current && onCursorMove) {
       const rect = containerRef.current.getBoundingClientRect();
-      setMousePos({
-        x: (e.clientX - rect.left - pan.x) / scale,
-        y: (e.clientY - rect.top - pan.y) / scale,
-      });
+      const curX = Math.round((e.clientX - rect.left - pan.x) / scale);
+      const curY = Math.round((e.clientY - rect.top - pan.y) / scale);
+      onCursorMove({ x: Math.max(0, curX), y: Math.max(0, curY) });
     }
   };
+
+  // Sound effect for buzzers when active in the circuit
+  useEffect(() => {
+    if (!isSimulating) {
+      updateBuzzerSound(false);
+      return;
+    }
+    const isBuzzerActive = elements.some(el => {
+      if (el.type !== 'buzzer') return false;
+      const powerW = simulationResult.elementPowers[el.id] || 0;
+      return powerW > 0.01;
+    });
+    updateBuzzerSound(isBuzzerActive);
+    return () => {
+      updateBuzzerSound(false);
+    };
+  }, [isSimulating, elements, simulationResult]);
 
   const handleMouseUp = () => {
     setIsPanning(false);
@@ -236,6 +269,7 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
   // Toggle Switch state
   const handleToggleSwitch = (comp: CircuitElement) => {
     const isCurrentlyOpen = comp.state?.isOpen ?? false;
+    playSwitchClickSound(!isCurrentlyOpen);
     onUpdateElement(comp.id, {
       state: { ...comp.state, isOpen: !isCurrentlyOpen },
     });
@@ -248,6 +282,62 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
     const currentA = simulationResult.elementCurrents[el.id] || 0;
     const currentMA = currentA * 1000;
     const powerW = simulationResult.elementPowers[el.id] || 0;
+
+    // 1. PCB Layout Mode (silkscreen outlines, copper solder pads)
+    if (viewMode === 'pcb') {
+      return (
+        <div className="relative w-[90px] h-[90px] flex items-center justify-center">
+          <PCBSymbol element={el} isSelected={isSelected} />
+        </div>
+      );
+    }
+
+    // 2. Circuit Diagram Schematic Mode (standard IEC/IEEE symbols)
+    if (displayStyle === 'schematic' && viewMode === 'schematic') {
+      return (
+        <div 
+          onClick={() => {
+            if (el.type === 'switch' || el.type === 'push_button') {
+              handleToggleSwitch(el);
+            }
+          }}
+          className={`relative w-[90px] h-[90px] flex items-center justify-center ${
+            el.type === 'switch' || el.type === 'push_button' ? 'cursor-pointer' : ''
+          }`}
+        >
+          <SchematicSymbol
+            element={el}
+            isSelected={isSelected}
+            isSimulating={isSimulating}
+            powerW={powerW}
+            currentA={currentA}
+            voltageDrop={voltDrop}
+          />
+          {/* LDR Lux slider on canvas */}
+          {el.subType === 'resistor_ldr' && (
+            <div 
+              onClick={e => e.stopPropagation()}
+              className="absolute -top-3 z-20 flex items-center gap-1 bg-slate-900/95 border border-slate-700 px-1.5 py-0.5 rounded-full shadow"
+            >
+              <Sun className="w-2.5 h-2.5 text-amber-400" />
+              <input
+                type="range"
+                min="0"
+                max="1000"
+                step="50"
+                value={el.state?.ambientLightLux ?? 500}
+                onChange={e => {
+                  onUpdateElement(el.id, {
+                    state: { ...el.state, ambientLightLux: parseInt(e.target.value, 10) }
+                  });
+                }}
+                className="w-12 h-1 bg-slate-700 rounded cursor-pointer accent-amber-400"
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
 
     switch (el.type) {
       case 'battery':
@@ -593,6 +683,47 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
         );
       }
 
+      case 'buzzer': {
+        const isBuzzing = isSimulating && powerW > 0.01;
+        return (
+          <div className="relative w-[92px] h-[86px] bg-slate-900 border border-slate-700 rounded-xl p-2 flex flex-col items-center justify-center shadow-md">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+              isBuzzing ? 'bg-purple-600 shadow-[0_0_20px_#a855f7] scale-105' : 'bg-slate-800'
+            }`}>
+              <Radio className={`w-6 h-6 ${isBuzzing ? 'text-white animate-spin' : 'text-slate-500'}`} />
+            </div>
+            <div className="text-[9px] font-bold text-slate-300 mt-1">{el.name}</div>
+            {isBuzzing && <div className="text-[8px] font-mono text-purple-300">~850Hz 🕪</div>}
+          </div>
+        );
+      }
+
+      case 'motor': {
+        const isSpinning = isSimulating && powerW > 0.01;
+        return (
+          <div className="relative w-[92px] h-[86px] bg-slate-900 border border-slate-700 rounded-xl p-2 flex flex-col items-center justify-center shadow-md">
+            <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${
+              isSpinning ? 'border-cyan-400 shadow-[0_0_15px_#22d3ee]' : 'border-slate-700 bg-slate-800'
+            }`}>
+              <RotateCw className={`w-6 h-6 ${isSpinning ? 'text-cyan-400 animate-spin' : 'text-slate-500'}`} />
+            </div>
+            <div className="text-[9px] font-bold text-slate-300 mt-1">{el.name}</div>
+            {isSpinning && <div className="text-[8px] font-mono text-cyan-300">RPM: {(voltDrop * 350).toFixed(0)}</div>}
+          </div>
+        );
+      }
+
+      case 'ground': {
+        return (
+          <div className="relative w-[80px] h-[75px] bg-slate-900/80 border border-slate-800 rounded-xl p-2 flex flex-col items-center justify-center shadow-md">
+            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-mono text-xs font-bold">
+              ⏚
+            </div>
+            <div className="text-[8px] font-mono font-bold text-slate-400 mt-1">0V GND</div>
+          </div>
+        );
+      }
+
       case 'board_green': {
         return (
           <div className="relative w-[130px] h-[120px] flex flex-col items-center justify-center p-1 group">
@@ -621,6 +752,13 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
   const bComp = blackProbe ? elements.find(e => e.id === blackProbe.compId) : null;
   const bTerm = bComp && blackProbe ? bComp.terminals.find(t => t.id === blackProbe.termId) : null;
   const bCoords = bComp && bTerm ? getTerminalCoords(bComp, bTerm) : null;
+  const bgClasses = viewMode === 'pcb'
+    ? 'bg-[#031d13] bg-[radial-gradient(#10b981_1.5px,transparent_1.5px)] [background-size:20px_20px]'
+    : viewMode === 'breadboard'
+    ? 'bg-[#0f172a] bg-[radial-gradient(#475569_1px,transparent_1px)] [background-size:16px_16px]'
+    : showGrid
+    ? 'bg-slate-950 bg-[radial-gradient(#334155_1.2px,transparent_1.2px)] [background-size:20px_20px]'
+    : 'bg-slate-950';
 
   return (
     <div
@@ -656,7 +794,7 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
           }
         }
       }}
-      className="relative w-full h-full min-h-[550px] bg-slate-950 overflow-hidden select-none cursor-crosshair bg-circuit-pattern"
+      className={`relative w-full h-full min-h-[550px] overflow-hidden select-none cursor-crosshair ${bgClasses}`}
     >
       {/* Zoom / Pan Controller Overlay & Wire Palette */}
       <div className="absolute top-4 left-4 z-30 flex items-center gap-2 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl shadow-lg backdrop-blur">
@@ -789,7 +927,29 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
           const d = `M ${c1.x} ${c1.y} Q ${midX} ${midY - 20} ${c2.x} ${c2.y}`;
 
           const isSelected = selectedWireId === wire.id;
-          const strokeColor = wire.color || '#10b981';
+          
+          // Voltage Levels: dynamic color based on electric potential
+          let strokeColor = wire.color || '#10b981';
+          if (showVoltageLevels) {
+            const vFrom = simulationResult.elementVoltages[wire.fromCompId] || 0;
+            const vTo = simulationResult.elementVoltages[wire.toCompId] || 0;
+            const avgV = Math.max(vFrom, vTo);
+            if (avgV >= 4.5) strokeColor = '#ef4444'; // Red (+5V to +9V+)
+            else if (avgV > 1.5) strokeColor = '#f59e0b'; // Amber
+            else if (avgV > 0.1) strokeColor = '#eab308'; // Yellow
+            else strokeColor = '#10b981'; // Green (0V / Ground)
+          }
+
+          // PCB Mode: Emerald copper traces
+          if (viewMode === 'pcb') {
+            strokeColor = '#059669';
+          }
+
+          // Current flow calculations
+          const fromCurrent = Math.abs(simulationResult.elementCurrents[wire.fromCompId] || 0);
+          const toCurrent = Math.abs(simulationResult.elementCurrents[wire.toCompId] || 0);
+          const wireCurrent = Math.max(fromCurrent, toCurrent);
+          const hasFlow = isSimulating && wireCurrent > 1e-5 && !simulationResult.shortCircuit;
 
           return (
             <g key={wire.id} className="pointer-events-auto">
@@ -805,16 +965,38 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
                   setSelectedWireId(wire.id);
                 }}
               />
-              {/* Rendered wire path */}
+              {/* Rendered wire path / PCB copper trace */}
               <path
                 d={d}
                 fill="none"
                 stroke={isSelected ? '#f43f5e' : strokeColor}
-                strokeWidth={isSelected ? 4 : 3}
+                strokeWidth={isSelected ? 4 : viewMode === 'pcb' ? 4 : 3}
                 strokeLinecap="round"
-                strokeDasharray={isSimulating && simulationResult.totalCurrent > 1e-5 ? '6 4' : undefined}
-                className={isSimulating && simulationResult.totalCurrent > 1e-5 ? 'animate-[dash_1s_linear_infinite]' : ''}
               />
+
+              {/* PCB Mode: solder pads at connection points */}
+              {viewMode === 'pcb' && (
+                <>
+                  <circle cx={c1.x} cy={c1.y} r={5} fill="#d97706" stroke="#f59e0b" strokeWidth={1} />
+                  <circle cx={c1.x} cy={c1.y} r={2} fill="#022c22" />
+                  <circle cx={c2.x} cy={c2.y} r={5} fill="#d97706" stroke="#f59e0b" strokeWidth={1} />
+                  <circle cx={c2.x} cy={c2.y} r={2} fill="#022c22" />
+                </>
+              )}
+
+              {/* Circuit Wizard Animated Current Flow: Glowing yellow dots moving along wires */}
+              {showCurrentFlow && hasFlow && (
+                <path
+                  d={d}
+                  fill="none"
+                  stroke="#fde047"
+                  strokeWidth={viewMode === 'pcb' ? 3 : 4}
+                  strokeLinecap="round"
+                  strokeDasharray="4 16"
+                  className="pointer-events-none drop-shadow-[0_0_6px_#fde047] animate-[dash_0.6s_linear_infinite]"
+                />
+              )}
+
               {/* Delete button on wire center when clicked */}
               {isSelected && (
                 <g
@@ -933,23 +1115,36 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
               {/* Terminals (Snapping Pins) */}
               {el.terminals.map(term => {
                 const isWiringStart = wiringFrom?.compId === el.id && wiringFrom?.termId === term.id;
+                const vDrop = simulationResult.elementVoltages[el.id] || 0;
+                const isHighLogic = isSimulating && vDrop >= 2.5;
 
                 return (
                   <div
                     key={term.id}
                     style={{
-                      left: term.relX - 8,
-                      top: term.relY - 8,
+                      left: term.relX - 7,
+                      top: term.relY - 7,
                     }}
                     onClick={(e) => handleTerminalClick(e, el, term)}
-                    className={`absolute w-4 h-4 rounded-full border-2 cursor-pointer transition-all flex items-center justify-center ${
+                    className={`absolute w-3.5 h-3.5 rounded-full border cursor-pointer transition-all flex items-center justify-center ${
                       isWiringStart
                         ? 'bg-emerald-400 border-white ring-4 ring-emerald-500/50 animate-ping'
+                        : viewMode === 'pcb'
+                        ? 'bg-[#d97706] border-[#f59e0b] shadow'
                         : 'bg-slate-900 border-emerald-400 hover:bg-emerald-500 hover:scale-125'
                     }`}
                     title={`طرف ${term.label} (انقر للتوصيل)`}
                   >
-                    <div className="w-1.5 h-1.5 bg-emerald-300 rounded-full" />
+                    <div className={`w-1 h-1 rounded-full ${viewMode === 'pcb' ? 'bg-[#022c22]' : 'bg-emerald-300'}`} />
+
+                    {/* Circuit Wizard Logic Levels indicator (1 = Red, 0 = Blue) */}
+                    {showLogicLevels && isSimulating && (
+                      <span className={`absolute -top-3.5 px-1 py-0.2 rounded font-mono text-[8px] font-bold ${
+                        isHighLogic ? 'bg-red-500 text-white' : 'bg-blue-600 text-white'
+                      }`}>
+                        {isHighLogic ? '1' : '0'}
+                      </span>
+                    )}
                   </div>
                 );
               })}

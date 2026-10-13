@@ -46,7 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="flex items-center gap-2">
               <span className="font-bold text-base sm:text-lg text-white tracking-wide">مختبر الدوائر الكهربائية</span>
               <span className="hidden md:inline-block text-[11px] font-mono-numbers px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                v2.6 MNA Engine
+                Circuit Wizard Edition
               </span>
             </div>
             <div className="text-xs text-slate-400 flex items-center gap-1.5">
@@ -74,12 +74,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setActiveView('lab')}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors ${
               activeView === 'lab'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
+                ? 'bg-slate-800 text-emerald-400 border border-slate-700'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
             }`}
           >
-            <Compass className="w-4 h-4" />
-            <span>المختبر التفاعلي</span>
+            <Compass className="w-4 h-4 text-emerald-400" />
+            <span>المختبر (Circuit Wizard)</span>
           </button>
 
           <button

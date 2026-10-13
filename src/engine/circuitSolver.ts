@@ -8,6 +8,7 @@ export type ComponentType =
   | 'battery'          // مصدر جهد مستمر (بطارية/مصدر تيار)
   | 'dc_power_supply'  // وحدة تغذية مختبرية متغيرة
   | 'ac_power_supply'  // مصدر جهد متردد AC
+  | 'ground'           // أرضي 0V Rail Reference
   | 'resistor'         // مقاومة كربونية / معدنية / قدرة
   | 'potentiometer'    // مقاومة متغيرة
   | 'lamp'             // مصباح كهربائي
@@ -16,8 +17,19 @@ export type ComponentType =
   | 'fuse'             // فيوز حماية
   | 'diode'            // دايود سيليكون
   | 'led'              // دايود مشع للضوء
+  | 'buzzer'           // طنان صوتي Buzzer
+  | 'motor'            // محرك تيار مستمر DC Motor
+  | 'relay'            // ريليه كهرومغناطيسي Relay
   | 'transistor_npn'   // ترانزستور NPN (BC547 / 2N2222)
   | 'transistor_pnp'   // ترانزستور PNP (BC557 / 2N3906)
+  | 'logic_and'        // بوابة AND
+  | 'logic_or'         // بوابة OR
+  | 'logic_not'        // بوابة NOT
+  | 'logic_nand'       // بوابة NAND
+  | 'logic_nor'        // بوابة NOR
+  | 'logic_xor'        // بوابة XOR
+  | 'ic_555'           // مؤقت 555 Timer
+  | 'ic_opamp'         // مكبر عمليات 741 Op-Amp
   | 'board_green'      // لوحة تجارب إلكترونية خضراء
   | 'capacitor'        // مكثف كهربائي (إلكتروليتي / سيراميك / فيلم / فائق)
   | 'inductor'         // ملف حثي
@@ -506,6 +518,43 @@ export function solveCircuit(
         addConductance(n3, n4, 1 / 1e-3);
         addConductance(n5, n6, 1 / 1e-3);
         addConductance(n7, n8, 1 / 1e-3);
+        break;
+      }
+      case 'buzzer': {
+        // Piezo / magnetic buzzer load ~ 100Ω
+        addConductance(nA, nB, 1 / 100);
+        break;
+      }
+      case 'motor': {
+        // Small DC motor armature resistance ~ 30Ω
+        addConductance(nA, nB, 1 / 30);
+        break;
+      }
+      case 'relay': {
+        // Relay coil ~ 150Ω
+        addConductance(nA, nB, 1 / 150);
+        break;
+      }
+      case 'ground': {
+        // Tied to reference ground (0V)
+        addConductance(nA, 0, 1 / 1e-4);
+        break;
+      }
+      case 'logic_and':
+      case 'logic_or':
+      case 'logic_not':
+      case 'logic_nand':
+      case 'logic_nor':
+      case 'logic_xor': {
+        // High input impedance for logic gates
+        addConductance(nA, 0, 1 / 1e6);
+        addConductance(nB, 0, 1 / 1e6);
+        break;
+      }
+      case 'ic_555':
+      case 'ic_opamp': {
+        // Op-Amp / 555 power and signal loading
+        addConductance(nA, nB, 1 / 1e5);
         break;
       }
       case 'capacitor': {

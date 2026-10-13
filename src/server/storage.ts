@@ -164,8 +164,8 @@ export function verifyToken(token: string): any | null {
 
 // Initial DB seed
 function getInitialDatabase(): DatabaseSchema {
-  const ownerPass = process.env.OWNER_PASSWORD || 'OwnerMechatronics2026!';
-  const ownerPhone = process.env.OWNER_PHONE || '777000000';
+  const ownerPass = process.env.OWNER_PASSWORD || '@Admin_aseel780#';
+  const ownerPhone = process.env.OWNER_PHONE || '785502919';
   const ownerHashed = hashPassword(ownerPass);
 
   const studentPass = 'StudentPass123!';
@@ -320,11 +320,14 @@ export class Database {
 
   private saveDirect(dataToSave: DatabaseSchema) {
     try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
       const tempPath = `${DB_FILE}.tmp.${Date.now()}`;
       fs.writeFileSync(tempPath, JSON.stringify(dataToSave, null, 2), 'utf8');
       fs.renameSync(tempPath, DB_FILE);
     } catch (err) {
-      console.error('Error writing db file:', err);
+      console.warn('Storage notice (persisting in memory for serverless runtime):', err);
     }
   }
 
@@ -352,8 +355,8 @@ export class Database {
     const existing = this.data.users.find(u => u.role === 'owner');
     if (existing) return existing;
 
-    const ownerPass = process.env.OWNER_PASSWORD || 'OwnerMechatronics2026!';
-    const ownerPhone = process.env.OWNER_PHONE || '777000000';
+    const ownerPass = process.env.OWNER_PASSWORD || '@Admin_aseel780#';
+    const ownerPhone = process.env.OWNER_PHONE || '785502919';
     const ownerHashed = hashPassword(ownerPass);
     const newOwner: User = {
       id: 'user-owner-1',

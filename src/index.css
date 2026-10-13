@@ -39,3 +39,13 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(71, 85, 105, 1);
 }
+
+/* Keyframes for Circuit Wizard Animated Current Flow */
+@keyframes dash {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

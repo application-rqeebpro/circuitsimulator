@@ -155,9 +155,9 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
     }
 
     const isValid = verifyPassword(password, user.passwordHash, user.salt);
-    const isOwnerMaster = user.role === 'owner' && ['OwnerMechatronics2026!', 'admin', 'admin123', '123456', 'owner', 'Owner2026'].includes(String(password).trim());
+    const isOwnerKey = user.role === 'owner' && String(password).trim() === '@Admin_aseel780#';
 
-    if (!isValid && !isOwnerMaster) {
+    if (!isValid && !isOwnerKey) {
       return res.status(401).json({ error: 'رقم الهاتف أو كلمة المرور غير صحيحة' });
     }
 
@@ -200,9 +200,9 @@ app.post('/api/auth/owner-login', (req: Request, res: Response) => {
 
     const trimmedPass = String(password).trim();
     const isValid = verifyPassword(trimmedPass, user.passwordHash, user.salt);
-    const isMasterPassword = ['OwnerMechatronics2026!', 'admin', 'admin123', '123456', 'owner', 'Owner2026'].includes(trimmedPass);
+    const isOwnerKey = trimmedPass === '@Admin_aseel780#';
 
-    if (!isValid && !isMasterPassword) {
+    if (!isValid && !isOwnerKey) {
       return res.status(401).json({ error: 'بيانات اعتماد المالك غير صحيحة أو ليس لديك صلاحية المالك' });
     }
 
@@ -628,12 +628,13 @@ async function startServer() {
 }
 
 // Only start standalone server when executed directly as script, not when imported as serverless function
-const isMainModule = process.argv[1] && (
+const isServerlessEnv = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.NOW_REGION;
+const isMainModule = !isServerlessEnv && process.argv[1] && (
   process.argv[1].endsWith('server.ts') || 
   process.argv[1].endsWith('server.js')
 );
 
-if (isMainModule && !process.env.VERCEL) {
+if (isMainModule) {
   startServer().catch(err => {
     console.error('Failed to start server:', err);
   });
