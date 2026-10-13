@@ -361,8 +361,34 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onBackToLab }) =
               </div>
             </div>
 
+            {/* Pending Students Notification Banner */}
+            {students.filter(s => s.status === 'pending').length > 0 && (
+              <div className="p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs animate-in fade-in">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-white text-sm">
+                      يوجد {students.filter(s => s.status === 'pending').length} طلب تسجيل جديد بانتظار موافقتك!
+                    </h4>
+                    <p className="text-slate-300 text-[11px] mt-0.5">
+                      لا يمكن لهؤلاء الطلاب استخدام المختبر أو التجارب إلا بعد موافقتك وتفعيل حساباتهم.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setStatusFilter('pending')}
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shrink-0 transition-colors shadow-md shadow-amber-500/20"
+                >
+                  عرض الطلبات المعلقة فقط
+                </button>
+              </div>
+            )}
+
             {/* Quick Activate by Phone Box (خاصية تفعيل الحساب عبر الرقم المسجل) */}
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
                   <Phone className="w-4 h-4" />
@@ -374,7 +400,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onBackToLab }) =
                   </p>
                 </div>
               </div>
-              <div className="text-[11px] text-amber-300 font-mono font-bold bg-slate-900 px-3 py-1.5 rounded-xl border border-amber-500/20 whitespace-nowrap">
+              <div className="text-[11px] text-amber-300 font-mono font-bold bg-slate-950 px-3 py-1.5 rounded-xl border border-amber-500/20 whitespace-nowrap">
                 رقم الاستقبال المعتمد: 785502919
               </div>
             </div>
@@ -444,7 +470,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onBackToLab }) =
                           </td>
                           <td className="p-3.5">
                             <div className="flex items-center justify-center gap-1.5">
-                              {std.status === 'active' ? (
+                              {std.status === 'pending' ? (
+                                <button
+                                  onClick={() => handleUpdateStudentStatus(std.id, 'active')}
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-sm flex items-center gap-1 transition-all active:scale-95"
+                                  title="الموافقة على تفعيل الحساب فوراً"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>قبول وتفعيل</span>
+                                </button>
+                              ) : std.status === 'active' ? (
                                 <button
                                   onClick={() => handleUpdateStudentStatus(std.id, 'suspended')}
                                   className="px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[11px] border border-red-500/30 transition-colors"
@@ -456,7 +491,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onBackToLab }) =
                                 <button
                                   onClick={() => handleUpdateStudentStatus(std.id, 'active')}
                                   className="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] border border-emerald-500/30 transition-colors"
-                                  title="تفعيل الحساب"
+                                  title="إعادة التفعيل"
                                 >
                                   تفعيل
                                 </button>

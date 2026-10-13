@@ -53,7 +53,9 @@ import {
   Gauge,
   Award,
   Check,
-  CheckSquare
+  CheckSquare,
+  Clock,
+  Phone
 } from 'lucide-react';
 
 export default function App() {
@@ -233,12 +235,16 @@ export default function App() {
 
   const handleAddComponentFromLibrary = useCallback((item: Omit<CircuitElement, 'id' | 'x' | 'y'>) => {
     const newId = `comp-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
-    // Place in visible area with slight offset
+    // Responsive spawn position inside visible left canvas area
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const baseSpawnX = isMobile ? 40 : 220;
+    const baseSpawnY = isMobile ? 60 : 140;
+    const step = isMobile ? 25 : 35;
     const newElement: CircuitElement = {
       ...item,
       id: newId,
-      x: 260 + (elements.length % 5) * 40,
-      y: 160 + (elements.length % 4) * 30,
+      x: baseSpawnX + (elements.length % 4) * step,
+      y: baseSpawnY + (elements.length % 5) * step,
     };
     setElements(prev => [...prev, newElement]);
     setSelectedElementId(newId);
@@ -406,6 +412,8 @@ export default function App() {
                       onClick={() => {
                         if (!currentUser) {
                           setLoginOpen(true);
+                        } else if (currentUser.status === 'pending') {
+                          setActiveView('lab');
                         } else {
                           setActiveExperiment(exp);
                           handleLoadExperimentCircuit(exp);
@@ -421,6 +429,8 @@ export default function App() {
                       onClick={() => {
                         if (!currentUser) {
                           setLoginOpen(true);
+                        } else if (currentUser.status === 'pending') {
+                          setActiveView('lab');
                         } else {
                           setQuizExperiment(exp);
                           setQuizOpen(true);
@@ -465,6 +475,49 @@ export default function App() {
                       className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-medium text-xs border border-slate-700"
                     >
                       إنشاء حساب جديد
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : currentUser.status === 'pending' ? (
+              <div className="flex-1 flex items-center justify-center p-4 sm:p-6 bg-slate-950">
+                <div className="max-w-md w-full p-6 sm:p-8 rounded-2xl bg-slate-900 border border-amber-500/40 text-center space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                    <Clock className="w-8 h-8 animate-pulse" />
+                  </div>
+                  <h2 className="text-xl font-bold text-white">حسابك بانتظار موافقة المالك</h2>
+                  
+                  <div className="p-4 rounded-xl bg-slate-950 border border-amber-500/30 text-xs text-slate-200 leading-relaxed text-right space-y-2">
+                    <div className="font-bold text-amber-300">مرحباً بك في منصة مختبر الميكاترونكس!</div>
+                    <p className="text-slate-300">
+                      سيتم تفعيل حسابك في أقرب وقت، انتظر قليلاً أو تواصل مع المالك مباشرة لتفعيل حسابك على الرقم{' '}
+                      <strong className="text-amber-400 font-mono text-sm underline select-all">785502919</strong>
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2 pt-1 text-xs">
+                    <a
+                      href="tel:785502919"
+                      className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold shadow-lg shadow-amber-600/25 flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                      <Phone className="w-4 h-4" />
+                      <span>اتصال مباشر بالمالك: 785502919</span>
+                    </a>
+
+                    <a
+                      href={`https://wa.me/967785502919?text=${encodeURIComponent(`مرحباً أستاذ أصيل، لقد سجلت في مختبر الميكاترونكس بالاسم: ${currentUser.fullName} ورقم الهاتف: ${currentUser.phone}، أرجو تفعيل الحساب.`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                      <span>مراسلة المالك عبر واتساب</span>
+                    </a>
+
+                    <button
+                      onClick={handleLogout}
+                      className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors mt-2"
+                    >
+                      تسجيل الخروج
                     </button>
                   </div>
                 </div>
@@ -645,11 +698,19 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Main Workspace: Center Canvas + Right Component Gallery (Circuit Wizard standard layout!) */}
-                <div className="flex-1 flex overflow-hidden relative">
+                {/* Main Workspace: Right Component Gallery + Left Circuit Canvas */}
+                <div className="flex-1 flex overflow-hidden relative" dir="rtl">
                   
-                  {/* Center: Circuit Canvas Workspace */}
-                  <div className="flex-1 relative overflow-hidden">
+                  {/* Right: Component Gallery Sidebar (In RTL, first child appears on the RIGHT of screen) */}
+                  <CircuitWizardGallery
+                    isOpen={componentLibraryOpen}
+                    onToggle={() => setComponentLibraryOpen(o => !o)}
+                    onAddComponent={handleAddComponentFromLibrary}
+                    onOpenColorCodeCalculator={() => setColorCodeModalOpen(true)}
+                  />
+
+                  {/* Left: Circuit Canvas Workspace (In RTL, second child appears on the LEFT of screen) */}
+                  <div className="flex-1 relative overflow-hidden" dir="ltr">
                     <CircuitCanvas
                       elements={elements}
                       wires={wires}
@@ -711,14 +772,6 @@ export default function App() {
                       onSetActiveProbePlacing={setActiveProbePlacing}
                     />
                   </div>
-
-                  {/* Right: Component Gallery Sidebar (Matches Circuit Wizard exact layout!) */}
-                  <CircuitWizardGallery
-                    isOpen={componentLibraryOpen}
-                    onToggle={() => setComponentLibraryOpen(o => !o)}
-                    onAddComponent={handleAddComponentFromLibrary}
-                    onOpenColorCodeCalculator={() => setColorCodeModalOpen(true)}
-                  />
 
                   {/* Right Drawer: Experiment Guide Drawer */}
                   <ExperimentDrawer

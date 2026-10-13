@@ -98,7 +98,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     const { hash, salt } = hashPassword(password);
     const now = new Date();
     const subExpires = new Date();
-    subExpires.setDate(now.getDate() + (settings.defaultTrialDays || 14));
+    subExpires.setDate(now.getDate() + 180);
 
     const newUser: User = {
       id: `std-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
@@ -107,26 +107,25 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       university: university || 'الجامعة الإماراتية الدولية',
       studyLevel: studyLevel || 'السنة الأولى',
       role: 'student',
-      status: needsApproval ? 'pending' : 'active',
+      status: 'pending', // Account requires owner approval before it can be used
       passwordHash: hash,
       salt: salt,
       createdAt: now.toISOString(),
       subscription: {
-        status: needsApproval ? 'none' : 'active',
+        status: 'none',
         startsAt: now.toISOString(),
         expiresAt: subExpires.toISOString(),
-        planName: `فترة تجريبية (${settings.defaultTrialDays || 14} يوم)`,
+        planName: 'بانتظار موافقة المالك',
       },
     };
 
     db.addUser(newUser);
-    db.logAudit('تسجيل طالب جديد', newUser.fullName, `تم تسجيل الطالب بنجاح برقم: ${cleanPhone}`);
+    db.logAudit('تسجيل طالب جديد', newUser.fullName, `تم استلام طلب التسجيل برقم: ${cleanPhone} وهو بانتظار موافقة المالك`);
 
-    const token = createToken({ id: newUser.id, role: newUser.role });
     return res.status(201).json({
-      message: needsApproval ? 'تم إنشاء الحساب بنجاح وهو بانتظار موافقة المشرف' : 'تم إنشاء الحساب وتفعيله بنجاح',
+      message: 'سيتم تفعيل حسابك في أقرب وقت، انتظر قليلاً أو تواصل مع المالك مباشرة لتفعيل حسابك على الرقم 785502919',
       user: sanitizeUser(newUser),
-      token,
+      token: null,
     });
   } catch (err: any) {
     console.error('Registration error:', err);
@@ -161,8 +160,17 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
       return res.status(401).json({ error: 'رقم الهاتف أو كلمة المرور غير صحيحة' });
     }
 
+    // Check if student is still pending owner approval
+    if (user.role === 'student' && user.status === 'pending') {
+      return res.status(403).json({
+        error: 'سيتم تفعيل حسابك في أقرب وقت، انتظر قليلاً أو تواصل مع المالك مباشرة لتفعيل حسابك على الرقم 785502919',
+        status: 'pending',
+        ownerPhone: '785502919'
+      });
+    }
+
     if (user.status === 'suspended') {
-      return res.status(403).json({ error: 'تم تجميد هذا الحساب من قبل الإدارة. يرجى التواصل مع المشرف.' });
+      return res.status(403).json({ error: 'تم تجميد هذا الحساب من قبل الإدارة. يرجى التواصل مع المشرف على الرقم 785502919.' });
     }
 
     const token = createToken({ id: user.id, role: user.role });
@@ -327,20 +335,38 @@ app.patch('/api/students/:id/status', authenticateUser, requireOwner, (req: Auth
     return res.status(400).json({ error: 'حالة غير صالحة' });
   }
 
-  const updated = db.updateUser(req.params.id, { status });
-  if (!updated) {
+  const target = db.findUserById(req.params.id);
+  if (!target) {
     return res.status(404).json({ error: 'الطالب غير موجود' });
   }
+
+  const updates: Partial<User> = { status };
+  if (status === 'active') {
+    const isSubActive = target.subscription?.status === 'active' && new Date(target.subscription.expiresAt) > new Date();
+    if (!isSubActive) {
+      const now = new Date();
+      const expiresAt = new Date();
+      expiresAt.setDate(now.getDate() + 180);
+      updates.subscription = {
+        status: 'active',
+        startsAt: now.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        planName: 'اشتراك فصلي معتمد من المالك (180 يوم)',
+      };
+    }
+  }
+
+  const updated = db.updateUser(req.params.id, updates);
 
   db.logAudit(
     'تغيير حالة حساب طالب',
     req.user!.fullName,
-    `تم تغيير حالة حساب الطالب ${updated.fullName} إلى: ${status === 'active' ? 'مفعل' : 'موقوف'}`
+    `تم تغيير حالة حساب الطالب ${target.fullName} إلى: ${status === 'active' ? 'مفعل وموافق عليه' : status === 'suspended' ? 'موقوف' : 'قيد المراجعة'}`
   );
 
   return res.json({
-    message: 'تم تحديث حالة الطالب بنجاح',
-    student: sanitizeUser(updated),
+    message: status === 'active' ? 'تمت الموافقة على تفعيل حساب الطالب بنجاح' : 'تم تحديث حالة الطالب بنجاح',
+    student: sanitizeUser(updated!),
   });
 });
 

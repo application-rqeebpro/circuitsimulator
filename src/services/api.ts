@@ -268,7 +268,9 @@ class ApiClient {
       },
       { maxRetries: 0, silentNotification: true }
     );
-    this.setToken(res.token);
+    if (res.token) {
+      this.setToken(res.token);
+    }
     return res;
   }
 

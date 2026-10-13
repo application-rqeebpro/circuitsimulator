@@ -65,6 +65,24 @@
         "expiresAt": "2026-10-25T19:38:00.968Z",
         "planName": "فترة تجريبية (14 يوم)"
       }
+    },
+    {
+      "id": "std-1791899426538-979d41",
+      "fullName": "اصيل عبلان",
+      "phone": "782060070",
+      "university": "الجامعة الإماراتية الدولية",
+      "studyLevel": "السنة الأولى",
+      "role": "student",
+      "status": "active",
+      "passwordHash": "5ef10d8acadd97fdf697418aacbfb3129b726f4b0b0fb3d978be1d1b7147111a621d5eae82a2de4890a34ed587f2ea42093e9be6f2458a7347e1615d4344be60",
+      "salt": "37d95e9fc00dfedddec31dd607615e63",
+      "createdAt": "2026-10-13T13:50:26.538Z",
+      "subscription": {
+        "status": "active",
+        "startsAt": "2026-10-13T13:50:26.538Z",
+        "expiresAt": "2026-10-27T13:50:26.538Z",
+        "planName": "فترة تجريبية (14 يوم)"
+      }
     }
   ],
   "activationCodes": [
@@ -2272,6 +2290,34 @@
   "quizAttempts": [],
   "auditLogs": [
     {
+      "id": "log-1791900757916-biei2",
+      "action": "تغيير حالة حساب طالب",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تغيير حالة حساب الطالب طالب اختباري إلى: مفعل وموافق عليه",
+      "timestamp": "2026-10-13T14:12:37.916Z"
+    },
+    {
+      "id": "log-1791900757907-a0wi4",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-13T14:12:37.907Z"
+    },
+    {
+      "id": "log-1791900757885-k48ys",
+      "action": "تسجيل طالب جديد",
+      "performedBy": "طالب اختباري",
+      "details": "تم استلام طلب التسجيل برقم: 778811223 وهو بانتظار موافقة المالك",
+      "timestamp": "2026-10-13T14:12:37.885Z"
+    },
+    {
+      "id": "log-1791899426539-f72zz",
+      "action": "تسجيل طالب جديد",
+      "performedBy": "اصيل عبلان",
+      "details": "تم تسجيل الطالب بنجاح برقم: 782060070",
+      "timestamp": "2026-10-13T13:50:26.539Z"
+    },
+    {
       "id": "log-1791898730976-cgl89",
       "action": "تسجيل دخول المالك",
       "performedBy": "المهندس المشرف (مالك المنصة)",
@@ -2401,7 +2447,7 @@
   "settings": {
     "academyName": "أكاديمية الميكاترونكس اليمنية",
     "labTitle": "مختبر الدوائر الكهربائية التفاعلي",
-    "requireOwnerApprovalForRegistration": false,
+    "requireOwnerApprovalForRegistration": true,
     "defaultTrialDays": 14,
     "subscriptionPlans": [
       {
@@ -2441,6 +2487,6 @@
     ]
   },
   "stats": {
-    "simulationRunsCount": 38
+    "simulationRunsCount": 41
   }
 }

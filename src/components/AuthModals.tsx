@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Shield, User, Lock, Phone, GraduationCap, CheckCircle2, AlertTriangle, KeyRound } from 'lucide-react';
+import { X, Shield, User, Lock, Phone, GraduationCap, CheckCircle2, AlertTriangle, KeyRound, Clock, ShieldAlert } from 'lucide-react';
 import { api } from '../services/api';
 import { UserProfile } from '../types';
 
@@ -58,15 +58,17 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
   const [isAcademySubscribed, setIsAcademySubscribed] = useState<'yes' | 'no' | null>(null);
   const [showSubscriptionRequestModal, setShowSubscriptionRequestModal] = useState(false);
 
-  // Status
+  // Status & Pending Registration Screen
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [registeredPendingUser, setRegisteredPendingUser] = useState<UserProfile | null>(null);
 
   const resetFields = () => {
     setErrorMsg('');
     setSuccessMsg('');
     setLoading(false);
+    setRegisteredPendingUser(null);
   };
 
   // Student Login Handler
@@ -132,11 +134,10 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
         studyLevel,
         password,
       });
-      setSuccessMsg(res.message);
-      setTimeout(() => {
-        onAuthSuccess(res.user);
-        onClose();
-      }, 1200);
+      // Show pending confirmation card with owner contact
+      setRegisteredPendingUser(res.user);
+      setErrorMsg('');
+      setSuccessMsg('');
     } catch (err: any) {
       setErrorMsg(err.message || 'فشل إنشاء الحساب');
     } finally {
@@ -192,9 +193,38 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
             </div>
 
             {errorMsg && (
-              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
-                <span>{errorMsg}</span>
+              <div className={`mb-4 p-3.5 rounded-xl border text-xs space-y-2 ${
+                errorMsg.includes('785502919')
+                  ? 'bg-amber-500/10 border-amber-500/40 text-amber-200'
+                  : 'bg-red-500/10 border-red-500/30 text-red-300'
+              }`}>
+                <div className="flex items-start gap-2">
+                  {errorMsg.includes('785502919') ? (
+                    <Clock className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-red-400 mt-0.5" />
+                  )}
+                  <span className="leading-relaxed">{errorMsg}</span>
+                </div>
+                {errorMsg.includes('785502919') && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-amber-500/20">
+                    <a
+                      href="tel:785502919"
+                      className="flex-1 py-1.5 px-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-center font-bold text-[11px] flex items-center justify-center gap-1"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>اتصال: 785502919</span>
+                    </a>
+                    <a
+                      href={`https://wa.me/967785502919?text=${encodeURIComponent(`مرحباً أستاذ أصيل، لقد سجلت في مختبر الميكاترونكس برقم الهاتف: ${phone}، أرجو تفعيل حسابي.`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-center font-bold text-[11px]"
+                    >
+                      <span>واتساب المالك</span>
+                    </a>
+                  </div>
+                )}
               </div>
             )}
 
@@ -337,13 +367,68 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
         {/* 3. Student Registration Modal */}
         {registerOpen && (
           <div>
-            <div className="text-center mb-5">
-              <div className="w-12 h-12 mx-auto rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2">
-                <GraduationCap className="w-6 h-6" />
+            {registeredPendingUser ? (
+              <div className="text-center py-2 space-y-4 animate-in fade-in zoom-in-95">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 text-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                  <Clock className="w-8 h-8 animate-pulse" />
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-bold text-white">تم استلام طلب التسجيل بنجاح</h3>
+                  <p className="text-xs text-amber-400 font-medium mt-1">حساب الطالب قيد المراجعة وبانتظار موافقة المالك</p>
+                </div>
+
+                {/* The exact requested user message */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-amber-500/30 text-right space-y-2 shadow-inner">
+                  <div className="flex items-start gap-2.5">
+                    <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-xs leading-relaxed text-slate-100 font-medium">
+                      سيتم تفعيل حسابك في أقرب وقت، انتظر قليلاً أو تواصل مع المالك مباشرة لتفعيل حسابك على الرقم{' '}
+                      <strong className="text-amber-300 font-mono text-sm underline select-all">785502919</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Direct contact actions */}
+                <div className="space-y-2 pt-2">
+                  <a
+                    href="tel:785502919"
+                    className="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-600/30 flex items-center justify-center gap-2 transition-all active:scale-95"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span>اتصال مباشر بالمالك: 785502919</span>
+                  </a>
+
+                  <a
+                    href={`https://wa.me/967785502919?text=${encodeURIComponent(`مرحباً أستاذ أصيل، لقد سجلت في مختبر الميكاترونكس بالاسم: ${fullName || registeredPendingUser.fullName} ورقم الهاتف: ${phone || registeredPendingUser.phone}، أرجو تفعيل الحساب.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-700/30 flex items-center justify-center gap-2 transition-all active:scale-95"
+                  >
+                    <span>مراسلة المالك عبر واتساب</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetFields();
+                      onClose();
+                    }}
+                    className="w-full py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition-colors mt-2"
+                  >
+                    إغلاق والعودة للرئيسية
+                  </button>
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-white">إنشاء حساب طالب جديد</h3>
-              <p className="text-xs text-slate-400">انضم لمختبر أكاديمية الميكاترونكس اليمنية</p>
-            </div>
+            ) : (
+              <>
+                <div className="text-center mb-5">
+                  <div className="w-12 h-12 mx-auto rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2">
+                    <GraduationCap className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">إنشاء حساب طالب جديد</h3>
+                  <p className="text-xs text-slate-400">انضم لمختبر أكاديمية الميكاترونكس اليمنية</p>
+                </div>
 
             {errorMsg && (
               <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
@@ -583,8 +668,10 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
                 </button>
               </p>
             </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
+      )}
 
         {/* 4. Redeem Activation Code Modal */}
         {redeemOpen && (

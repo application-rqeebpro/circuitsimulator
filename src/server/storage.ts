@@ -237,7 +237,7 @@ function getInitialDatabase(): DatabaseSchema {
   const defaultSettings: LabSettings = {
     academyName: 'أكاديمية الميكاترونكس اليمنية',
     labTitle: 'مختبر الدوائر الكهربائية التفاعلي',
-    requireOwnerApprovalForRegistration: false, // by default auto-activate new students
+    requireOwnerApprovalForRegistration: true, // Requires owner approval before student can use anything
     defaultTrialDays: 14,
     subscriptionPlans: [
       { id: 'plan-1', name: 'اشتراك تجريبي (14 يوم)', durationDays: 14, priceYMR: 0 },
