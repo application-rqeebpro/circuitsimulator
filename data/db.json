@@ -137,6 +137,24 @@
         "expiresAt": "2027-04-11T14:38:39.813Z",
         "planName": "اشتراك فصلي معتمد من المالك (180 يوم)"
       }
+    },
+    {
+      "id": "std-1791926274341-383780",
+      "fullName": "اختبار طالب جديد",
+      "phone": "777888999",
+      "university": "الجامعة الإماراتية الدولية",
+      "studyLevel": "السنة الأولى",
+      "role": "student",
+      "status": "pending",
+      "passwordHash": "55424a06e5296d656c5c3e15d7878963a51a3e8598be1976b42740d42a613951387a1e9bf4ca3710a4531bbd9651c771d8318b6cf554f6d8dbc2821f4e534f37",
+      "salt": "c31180b38ff0c08c2b3fbb43744d2c64",
+      "createdAt": "2026-10-13T21:17:54.341Z",
+      "subscription": {
+        "status": "none",
+        "startsAt": "2026-10-13T21:17:54.341Z",
+        "expiresAt": "2027-04-11T21:17:54.341Z",
+        "planName": "بانتظار موافقة المالك"
+      }
     }
   ],
   "activationCodes": [
@@ -2344,6 +2362,20 @@
   "quizAttempts": [],
   "auditLogs": [
     {
+      "id": "log-1791926274342-lpd0y",
+      "action": "تسجيل طالب جديد",
+      "performedBy": "اختبار طالب جديد",
+      "details": "تم استلام طلب التسجيل برقم: 777888999 وهو بانتظار موافقة المالك",
+      "timestamp": "2026-10-13T21:17:54.342Z"
+    },
+    {
+      "id": "log-1791926269744-quijx",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-13T21:17:49.744Z"
+    },
+    {
       "id": "log-1791912868572-rishb",
       "action": "تسجيل دخول المالك",
       "performedBy": "المهندس المشرف (مالك المنصة)",
@@ -2625,6 +2657,6 @@
     ]
   },
   "stats": {
-    "simulationRunsCount": 47
+    "simulationRunsCount": 50
   }
 }

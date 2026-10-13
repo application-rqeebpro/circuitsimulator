@@ -144,27 +144,25 @@ router.post('/auth/register', (req: Request, res: Response) => {
       university: university || 'الجامعة الإماراتية الدولية',
       studyLevel: studyLevel || 'السنة الأولى',
       role: 'student',
-      status: 'active', // Active immediately so student can enter the lab right away
+      status: 'pending', // Account requires owner approval before it can be used
       passwordHash: hash,
       salt: salt,
       createdAt: now.toISOString(),
       subscription: {
-        status: 'active',
+        status: 'none',
         startsAt: now.toISOString(),
         expiresAt: subExpires.toISOString(),
-        planName: 'اشتراك فصلي معتمد (180 يوم)',
+        planName: 'بانتظار موافقة المالك',
       },
     };
 
     db.addUser(newUser);
-    db.logAudit('تسجيل طالب جديد', newUser.fullName, `تم تسجيل الطالب بنجاح برقم: ${cleanPhone} وتفعيل حسابه واشتراكه الفصلي`);
-
-    const token = createToken({ id: newUser.id, role: newUser.role });
+    db.logAudit('تسجيل طالب جديد', newUser.fullName, `تم استلام طلب التسجيل برقم: ${cleanPhone} وهو بانتظار موافقة المالك`);
 
     return res.status(201).json({
-      message: 'تم إنشاء وتفعيل حسابك بنجاح! مرحبًا بك في مختبر الدوائر الكهربائية.',
+      message: 'سيتم تفعيل حسابك في أقرب وقت، انتظر قليلاً أو تواصل مع المالك مباشرة لتفعيل حسابك على الرقم 785502919',
       user: sanitizeUser(newUser),
-      token,
+      token: null,
     });
   } catch (err: any) {
     console.error('Registration error:', err);
@@ -199,21 +197,13 @@ router.post('/auth/login', (req: Request, res: Response) => {
       return res.status(401).json({ error: 'رقم الهاتف أو كلمة المرور غير صحيحة' });
     }
 
-    // Auto-activate any pending student accounts so they can enter without restriction
+    // Check if student is still pending owner approval
     if (user.role === 'student' && user.status === 'pending') {
-      user.status = 'active';
-      if (!user.subscription || user.subscription.status !== 'active') {
-        const now = new Date();
-        const subExpires = new Date();
-        subExpires.setDate(now.getDate() + 180);
-        user.subscription = {
-          status: 'active',
-          startsAt: now.toISOString(),
-          expiresAt: subExpires.toISOString(),
-          planName: 'اشتراك فصلي معتمد (180 يوم)',
-        };
-      }
-      db.updateUser(user.id, { status: 'active', subscription: user.subscription });
+      return res.status(403).json({
+        error: 'سيتم تفعيل حسابك في أقرب وقت، انتظر قليلاً أو تواصل مع المالك مباشرة لتفعيل حسابك على الرقم 785502919',
+        status: 'pending',
+        ownerPhone: '785502919'
+      });
     }
 
     if (user.status === 'suspended') {
