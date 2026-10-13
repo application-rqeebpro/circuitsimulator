@@ -323,9 +323,7 @@ export class Database {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
-      const tempPath = `${DB_FILE}.tmp.${Date.now()}`;
-      fs.writeFileSync(tempPath, JSON.stringify(dataToSave, null, 2), 'utf8');
-      fs.renameSync(tempPath, DB_FILE);
+      fs.writeFileSync(DB_FILE, JSON.stringify(dataToSave, null, 2), 'utf8');
     } catch (err) {
       console.warn('Storage notice (persisting in memory for serverless runtime):', err);
     }

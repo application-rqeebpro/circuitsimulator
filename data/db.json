@@ -2344,6 +2344,13 @@
   "quizAttempts": [],
   "auditLogs": [
     {
+      "id": "log-1791912868572-rishb",
+      "action": "تسجيل دخول المالك",
+      "performedBy": "المهندس المشرف (مالك المنصة)",
+      "details": "تم تسجيل الدخول إلى لوحة القيادة بنجاح",
+      "timestamp": "2026-10-13T17:34:28.572Z"
+    },
+    {
       "id": "log-1791905620161-8t0l3",
       "action": "تسجيل دخول المالك",
       "performedBy": "المهندس المشرف (مالك المنصة)",
@@ -2618,6 +2625,6 @@
     ]
   },
   "stats": {
-    "simulationRunsCount": 46
+    "simulationRunsCount": 47
   }
 }
