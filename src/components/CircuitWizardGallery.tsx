@@ -135,7 +135,7 @@ export const CircuitWizardGallery: React.FC<CircuitWizardGalleryProps> = ({
 
   if (!isOpen) {
     return (
-      <div className="w-9 bg-slate-900 border-l border-slate-800 flex flex-col items-center py-3 z-30 select-none">
+      <div className="hidden lg:flex w-9 bg-slate-900 border-l border-slate-800 flex-col items-center py-3 z-30 select-none">
         <button
           onClick={onToggle}
           className="p-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-colors"
@@ -151,7 +151,15 @@ export const CircuitWizardGallery: React.FC<CircuitWizardGalleryProps> = ({
   }
 
   return (
-    <div className="w-80 lg:w-92 bg-slate-900 border-l border-slate-800 flex flex-col z-30 shrink-0 select-none shadow-xl">
+    <>
+      {/* Mobile Dark Backdrop when Gallery Drawer is open */}
+      <div 
+        onClick={onToggle}
+        className="lg:hidden fixed inset-0 bg-black/65 z-40 backdrop-blur-xs animate-in fade-in duration-200"
+      />
+
+      <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-88 max-w-[90vw] lg:relative lg:inset-auto lg:z-30 lg:w-80 xl:w-88 bg-slate-900 border-l border-slate-800 flex flex-col shrink-0 select-none shadow-2xl animate-in slide-in-from-right duration-200">
+
       
       {/* Header bar matching Circuit Wizard Gallery */}
       <div className="px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
@@ -346,5 +354,6 @@ export const CircuitWizardGallery: React.FC<CircuitWizardGalleryProps> = ({
       )}
 
     </div>
+    </>
   );
 };

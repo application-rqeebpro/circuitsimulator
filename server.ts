@@ -598,6 +598,14 @@ app.put('/api/settings', authenticateUser, requireOwner, (req: AuthenticatedRequ
   return res.json({ message: 'تم حفظ الإعدادات بنجاح', settings: updated });
 });
 
+// Global Error Handler for safe JSON response (prevents FUNCTION_INVOCATION_FAILED on Vercel)
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Unhandled server error:', err);
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'حدث خطأ غير متوقع في الخادم', details: err?.message || 'Server error' });
+  }
+});
+
 // ==========================================
 // 3. Vite Middleware / Production Static Serve
 // ==========================================

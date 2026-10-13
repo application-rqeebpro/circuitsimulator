@@ -34,7 +34,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const catalogItem = COMPONENT_CATALOG.find(c => c.subType === element.subType || c.type === element.type);
 
   return (
-    <div className="absolute bottom-4 right-4 z-30 w-88 max-w-[calc(100vw-32px)] bg-slate-900/95 border border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur text-slate-100 animate-in slide-in-from-bottom-3 duration-200 max-h-[85vh] overflow-y-auto">
+    <div className="absolute bottom-3 right-2 sm:right-4 left-2 sm:left-auto sm:w-88 max-w-[calc(100vw-16px)] bg-slate-900/95 border border-slate-700/80 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur text-slate-100 animate-in slide-in-from-bottom-3 duration-200 max-h-[80vh] overflow-y-auto">
       
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-800">

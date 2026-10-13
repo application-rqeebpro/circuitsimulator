@@ -579,6 +579,7 @@ export default function App() {
                   onOpenOscilloscope={() => setOscilloscopeModalOpen(true)}
                   onOpenAssistant={() => setWelcomeModalOpen(true)}
                   onOpenExperimentsDrawer={() => setExperimentDrawerOpen(true)}
+                  onOpenGallery={() => setComponentLibraryOpen(true)}
                 />
 
                 {/* Educational Guidance Banner */}

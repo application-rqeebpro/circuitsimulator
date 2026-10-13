@@ -19,7 +19,8 @@ import {
   Gauge,
   Power,
   Sun,
-  Thermometer
+  Thermometer,
+  Move
 } from 'lucide-react';
 import { RealisticComponentGraphic } from './RealisticComponentGraphics';
 import { SchematicSymbol } from './SchematicSymbols';
@@ -91,6 +92,13 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [isPanMode, setIsPanMode] = useState(false); // Mobile toggle: Pan mode vs Component edit mode
+
+  // Pinch-to-zoom state for mobile
+  const [isPinching, setIsPinching] = useState(false);
+  const [pinchStartDist, setPinchStartDist] = useState<number>(0);
+  const [pinchStartScale, setPinchStartScale] = useState<number>(1);
+  const [pinchStartCenter, setPinchStartCenter] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Dragging element
   const [draggingCompId, setDraggingCompId] = useState<string | null>(null);
@@ -106,7 +114,7 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
 
   // Handle Pan start
   const handleBackgroundMouseDown = (e: React.MouseEvent) => {
-    if (e.target === containerRef.current || (e.target as HTMLElement).tagName === 'svg') {
+    if (e.target === containerRef.current || (e.target as HTMLElement).tagName === 'svg' || (e.target as HTMLElement).tagName === 'path') {
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
       onSelectElement(null);
@@ -161,22 +169,66 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
     setDraggingCompId(null);
   };
 
-  // Touch handlers for mobile Android support
+  // Touch handlers for mobile Android & touchscreens (Single finger drag/pan + 2-finger pinch-to-zoom)
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1 && e.target === containerRef.current) {
-      setIsPanning(true);
+    // 1. Two-finger pinch-to-zoom gesture
+    if (e.touches.length === 2) {
+      setIsPinching(true);
+      setIsPanning(false);
+      setDraggingCompId(null);
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      setPinchStartDist(dist);
+      setPinchStartScale(scale);
+      setPinchStartCenter({
+        x: (t1.clientX + t2.clientX) / 2,
+        y: (t1.clientY + t2.clientY) / 2,
+      });
+      return;
+    }
+
+    // 2. Single finger touch
+    if (e.touches.length === 1) {
       const touch = e.touches[0];
-      setPanStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+      // If Pan Mode active or background touched
+      const isTargetBackground = 
+        e.target === containerRef.current || 
+        (e.target as HTMLElement).tagName === 'svg' ||
+        (e.target as HTMLElement).tagName === 'path';
+
+      if (isPanMode || isTargetBackground) {
+        setIsPanning(true);
+        setPanStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+        if (!isPanMode) {
+          onSelectElement(null);
+          setSelectedWireId(null);
+        }
+      }
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    // 1. Handle pinch-to-zoom
+    if (e.touches.length === 2 && isPinching && pinchStartDist > 0) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const newDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const factor = newDist / pinchStartDist;
+      const targetScale = Math.min(2.2, Math.max(0.45, pinchStartScale * factor));
+      setScale(targetScale);
+      return;
+    }
+
+    // 2. Single finger panning
     if (isPanning && e.touches.length === 1) {
       const touch = e.touches[0];
       setPan({ x: touch.clientX - panStart.x, y: touch.clientY - panStart.y });
+      return;
     }
 
-    if (draggingCompId && containerRef.current && e.touches.length === 1) {
+    // 3. Single finger component dragging (snapping to 10px grid)
+    if (draggingCompId && containerRef.current && e.touches.length === 1 && !isPanMode) {
       const touch = e.touches[0];
       const rect = containerRef.current.getBoundingClientRect();
       const rawX = (touch.clientX - rect.left - pan.x) / scale - dragOffset.x;
@@ -189,6 +241,7 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
 
   const handleTouchEnd = () => {
     setIsPanning(false);
+    setIsPinching(false);
     setDraggingCompId(null);
   };
 
@@ -794,23 +847,23 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
           }
         }
       }}
-      className={`relative w-full h-full min-h-[550px] overflow-hidden select-none cursor-crosshair ${bgClasses}`}
+      className={`relative w-full h-full min-h-[420px] sm:min-h-[550px] overflow-hidden select-none cursor-crosshair touch-none ${bgClasses}`}
     >
       {/* Zoom / Pan Controller Overlay & Wire Palette */}
-      <div className="absolute top-4 left-4 z-30 flex items-center gap-2 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl shadow-lg backdrop-blur">
+      <div className="absolute top-3 left-3 z-30 flex flex-wrap items-center gap-1.5 sm:gap-2 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl shadow-lg backdrop-blur max-w-[calc(100vw-24px)]">
         <button
-          onClick={() => setScale(s => Math.min(s + 0.15, 2.0))}
-          className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold"
+          onClick={() => setScale(s => Math.min(s + 0.15, 2.2))}
+          className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold active:scale-95"
           title="تكبير +"
         >
           +
         </button>
-        <span className="text-[11px] font-mono-numbers text-slate-300 px-1">
+        <span className="text-[11px] font-mono-numbers text-slate-300 px-0.5">
           {Math.round(scale * 100)}%
         </span>
         <button
-          onClick={() => setScale(s => Math.max(s - 0.15, 0.5))}
-          className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold"
+          onClick={() => setScale(s => Math.max(s - 0.15, 0.45))}
+          className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold active:scale-95"
           title="تصغير -"
         >
           -
@@ -823,9 +876,24 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
           إعادة
         </button>
 
+        {/* Pan Mode Toggle for Touch & Mobile */}
+        <button
+          type="button"
+          onClick={() => setIsPanMode(p => !p)}
+          className={`px-2 h-7 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all ${
+            isPanMode
+              ? 'bg-emerald-600 text-white shadow ring-2 ring-emerald-400'
+              : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+          }`}
+          title={isPanMode ? 'وضع تحريك اللوحة مفعّل (انقر للعودة لوضع التحديد والتوصيل)' : 'تفعيل وضع تحريك اللوحة باللمس (Pan)'}
+        >
+          <Move className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">{isPanMode ? 'وضع التحريك' : 'تحريك'}</span>
+        </button>
+
         {/* Wire Color Selector: Red, Black, Blue, Green, Yellow */}
-        <div className="flex items-center gap-1 border-r border-slate-700 pr-2 mr-1">
-          <span className="text-[9px] text-slate-400 font-bold hidden sm:inline">السلك:</span>
+        <div className="flex items-center gap-1 border-r border-slate-700 pr-1.5 mr-0.5">
+          <span className="text-[9px] text-slate-400 font-bold hidden md:inline">السلك:</span>
           {[
             { color: '#ef4444', label: 'أحمر (+)' },
             { color: '#09090b', label: 'أسود (-)' },
@@ -850,11 +918,11 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
         {onOpenMultimeter && (
           <button
             onClick={onOpenMultimeter}
-            className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-bold flex items-center gap-1 transition-colors"
+            className="px-2 py-1 h-7 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-bold flex items-center gap-1 transition-colors"
             title="فتح جهاز الملتيميتر الرقمي الأصفر"
           >
             <Gauge className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">الملتيميتر الأصفر</span>
+            <span className="hidden sm:inline">الملتيميتر</span>
           </button>
         )}
       </div>
@@ -1126,7 +1194,14 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
                       top: term.relY - 7,
                     }}
                     onClick={(e) => handleTerminalClick(e, el, term)}
-                    className={`absolute w-3.5 h-3.5 rounded-full border cursor-pointer transition-all flex items-center justify-center ${
+                    onTouchStart={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onTouchEnd={(e) => {
+                      e.stopPropagation();
+                      handleTerminalClick(e as any, el, term);
+                    }}
+                    className={`absolute w-3.5 h-3.5 rounded-full border cursor-pointer transition-all flex items-center justify-center before:absolute before:-inset-3.5 before:content-[''] before:z-20 ${
                       isWiringStart
                         ? 'bg-emerald-400 border-white ring-4 ring-emerald-500/50 animate-ping'
                         : viewMode === 'pcb'
@@ -1149,10 +1224,10 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
                 );
               })}
 
-              {/* Floating Quick Action Bar when Selected */}
+              {/* Floating Quick Action Bar when Selected (Mobile-friendly thumb targets) */}
               {isSelected && (
                 <div
-                  className="absolute -top-9 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded-lg shadow-xl z-20"
+                  className="absolute -top-11 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-slate-900/95 border border-slate-700 px-2 py-1 rounded-xl shadow-2xl z-30 backdrop-blur"
                   style={{ transform: `rotate(-${el.rotation}deg)` }}
                 >
                   <button
@@ -1160,20 +1235,20 @@ export const CircuitCanvas: React.FC<CircuitCanvasProps> = ({
                       e.stopPropagation();
                       onUpdateElement(el.id, { rotation: (el.rotation + 90) % 360 });
                     }}
-                    className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-800"
-                    title="تدوير 90°"
+                    className="p-1.5 rounded-lg text-teal-300 hover:text-white bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all"
+                    title="تدوير 90° (Rotate)"
                   >
-                    <RotateCw className="w-3.5 h-3.5" />
+                    <RotateCw className="w-4 h-4" />
                   </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onDeleteElement(el.id);
                     }}
-                    className="p-1 rounded text-red-400 hover:text-red-300 hover:bg-slate-800"
-                    title="حذف المكون"
+                    className="p-1.5 rounded-lg text-red-400 hover:text-red-300 bg-red-950/40 hover:bg-red-900/60 active:scale-95 transition-all"
+                    title="حذف المكون (Delete)"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               )}

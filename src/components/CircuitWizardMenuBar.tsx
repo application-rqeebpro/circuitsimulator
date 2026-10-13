@@ -124,21 +124,21 @@ export const CircuitWizardMenuBar: React.FC<CircuitWizardMenuBarProps> = ({
   };
 
   return (
-    <div ref={barRef} className="bg-slate-900 border-b border-slate-800 text-slate-200 text-xs select-none flex items-center justify-between px-2 py-0.5 z-40">
+    <div ref={barRef} className="hidden md:flex bg-slate-900 border-b border-slate-800 text-slate-200 text-xs select-none items-center justify-between px-2 py-0.5 z-40 overflow-x-auto scrollbar-none">
       
       {/* Menu items row */}
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5 shrink-0">
         
         {/* FILE MENU */}
         <div className="relative">
           <button
             onClick={() => toggle('file')}
             onMouseEnter={() => menuHover('file')}
-            className={`px-2.5 py-1 rounded transition-colors text-xs ${
+            className={`px-2 py-1 rounded transition-colors text-xs ${
               openMenu === 'file' ? 'bg-slate-800 text-white font-bold' : 'hover:bg-slate-800 hover:text-white'
             }`}
           >
-            File <span className="text-[10px] text-slate-400">(ملف)</span>
+            File <span className="text-[10px] text-slate-400 hidden sm:inline">(ملف)</span>
           </button>
           {openMenu === 'file' && (
             <div className="absolute top-full left-0 mt-0.5 w-60 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 text-xs">
@@ -206,7 +206,7 @@ export const CircuitWizardMenuBar: React.FC<CircuitWizardMenuBarProps> = ({
               openMenu === 'edit' ? 'bg-slate-800 text-white font-bold' : 'hover:bg-slate-800 hover:text-white'
             }`}
           >
-            Edit <span className="text-[10px] text-slate-400">(تعديل)</span>
+            Edit <span className="text-[10px] text-slate-400 hidden sm:inline">(تعديل)</span>
           </button>
           {openMenu === 'edit' && (
             <div className="absolute top-full left-0 mt-0.5 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 text-xs">
@@ -241,11 +241,11 @@ export const CircuitWizardMenuBar: React.FC<CircuitWizardMenuBarProps> = ({
           <button
             onClick={() => toggle('view')}
             onMouseEnter={() => menuHover('view')}
-            className={`px-2.5 py-1 rounded transition-colors text-xs ${
+            className={`px-2 py-1 rounded transition-colors text-xs ${
               openMenu === 'view' ? 'bg-slate-800 text-white font-bold' : 'hover:bg-slate-800 hover:text-white'
             }`}
           >
-            View <span className="text-[10px] text-slate-400">(عرض)</span>
+            View <span className="text-[10px] text-slate-400 hidden sm:inline">(عرض)</span>
           </button>
           {openMenu === 'view' && (
             <div className="absolute top-full left-0 mt-0.5 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 text-xs">
@@ -337,11 +337,11 @@ export const CircuitWizardMenuBar: React.FC<CircuitWizardMenuBarProps> = ({
           <button
             onClick={() => toggle('insert')}
             onMouseEnter={() => menuHover('insert')}
-            className={`px-2.5 py-1 rounded transition-colors text-xs ${
+            className={`px-2 py-1 rounded transition-colors text-xs ${
               openMenu === 'insert' ? 'bg-slate-800 text-white font-bold' : 'hover:bg-slate-800 hover:text-white'
             }`}
           >
-            Insert <span className="text-[10px] text-slate-400">(إدراج)</span>
+            Insert <span className="text-[10px] text-slate-400 hidden sm:inline">(إدراج)</span>
           </button>
           {openMenu === 'insert' && (
             <div className="absolute top-full left-0 mt-0.5 w-60 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 text-xs">
@@ -420,11 +420,11 @@ export const CircuitWizardMenuBar: React.FC<CircuitWizardMenuBarProps> = ({
           <button
             onClick={() => toggle('circuit')}
             onMouseEnter={() => menuHover('circuit')}
-            className={`px-2.5 py-1 rounded transition-colors text-xs ${
+            className={`px-2 py-1 rounded transition-colors text-xs ${
               openMenu === 'circuit' ? 'bg-slate-800 text-white font-bold' : 'hover:bg-slate-800 hover:text-white'
             }`}
           >
-            Circuit <span className="text-[10px] text-slate-400">(دائرة)</span>
+            Circuit <span className="text-[10px] text-slate-400 hidden sm:inline">(دائرة)</span>
           </button>
           {openMenu === 'circuit' && (
             <div className="absolute top-full left-0 mt-0.5 w-60 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 text-xs">
@@ -465,11 +465,11 @@ export const CircuitWizardMenuBar: React.FC<CircuitWizardMenuBarProps> = ({
           <button
             onClick={() => toggle('tools')}
             onMouseEnter={() => menuHover('tools')}
-            className={`px-2.5 py-1 rounded transition-colors text-xs ${
+            className={`px-2 py-1 rounded transition-colors text-xs ${
               openMenu === 'tools' ? 'bg-slate-800 text-white font-bold' : 'hover:bg-slate-800 hover:text-white'
             }`}
           >
-            Tools <span className="text-[10px] text-slate-400">(أدوات)</span>
+            Tools <span className="text-[10px] text-slate-400 hidden sm:inline">(أدوات)</span>
           </button>
           {openMenu === 'tools' && (
             <div className="absolute top-full left-0 mt-0.5 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 text-xs">
@@ -510,11 +510,11 @@ export const CircuitWizardMenuBar: React.FC<CircuitWizardMenuBarProps> = ({
           <button
             onClick={() => toggle('help')}
             onMouseEnter={() => menuHover('help')}
-            className={`px-2.5 py-1 rounded transition-colors text-xs ${
+            className={`px-2 py-1 rounded transition-colors text-xs ${
               openMenu === 'help' ? 'bg-slate-800 text-white font-bold' : 'hover:bg-slate-800 hover:text-white'
             }`}
           >
-            Help <span className="text-[10px] text-slate-400">(مساعدة)</span>
+            Help <span className="text-[10px] text-slate-400 hidden sm:inline">(مساعدة)</span>
           </button>
           {openMenu === 'help' && (
             <div className="absolute top-full left-0 mt-0.5 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 text-xs">

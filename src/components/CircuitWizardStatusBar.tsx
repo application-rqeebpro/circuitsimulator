@@ -49,7 +49,7 @@ export const CircuitWizardStatusBar: React.FC<CircuitWizardStatusBarProps> = ({
   const mmY = ((cursorPos.y * 2.54) / 10).toFixed(1);
 
   return (
-    <div className="bg-slate-950 border-t border-slate-800 text-[11px] font-mono text-slate-300 px-3 py-1 flex items-center justify-between gap-3 select-none z-30 overflow-x-auto scrollbar-none">
+    <div className="bg-slate-950 border-t border-slate-800 text-[11px] font-mono text-slate-300 px-3 py-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-2 sm:gap-3 select-none z-30 overflow-x-auto scrollbar-none">
       
       {/* Left: Simulation State & Health */}
       <div className="flex items-center gap-3 shrink-0">

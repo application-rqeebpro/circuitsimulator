@@ -1,6 +1,6 @@
-import React from 'react';
-import { Cpu, Shield, User, LogOut, KeyRound, Sparkles, CheckCircle2, AlertCircle, Bookmark, Compass } from 'lucide-react';
+import { Cpu, Shield, User, LogOut, KeyRound, Sparkles, CheckCircle2, AlertCircle, Bookmark, Compass, Smartphone } from 'lucide-react';
 import { UserProfile } from '../types';
+import { PWAInstallPrompt } from './PWAInstallPrompt';
 
 interface NavbarProps {
   currentUser: UserProfile | null;
@@ -129,6 +129,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Action Widgets */}
         <div className="flex items-center gap-2">
+          {/* PWA Install Button */}
+          <div className="hidden sm:block">
+            <PWAInstallPrompt variant="compact" />
+          </div>
+
           {currentUser ? (
             <div className="flex items-center gap-2">
               {/* Subscription Status Tag */}
@@ -206,7 +211,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="lg:hidden flex items-center justify-around px-2 py-2 bg-slate-900 border-t border-slate-800 text-xs">
         <button
           onClick={() => setActiveView('landing')}
-          className={`px-2.5 py-1 rounded ${activeView === 'landing' ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}
+          className={`px-2 py-1 rounded ${activeView === 'landing' ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}
         >
           الرئيسية
         </button>
@@ -218,14 +223,17 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
         <button
           onClick={() => setActiveView('experiments')}
-          className={`px-2.5 py-1 rounded ${activeView === 'experiments' ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}
+          className={`px-2 py-1 rounded ${activeView === 'experiments' ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}
         >
           التجارب (14)
         </button>
+        <div className="sm:hidden">
+          <PWAInstallPrompt variant="compact" />
+        </div>
         {isOwner && (
           <button
             onClick={() => setActiveView('owner')}
-            className={`px-2.5 py-1 rounded ${activeView === 'owner' ? 'text-amber-400 font-bold' : 'text-amber-500/80'}`}
+            className={`px-2 py-1 rounded ${activeView === 'owner' ? 'text-amber-400 font-bold' : 'text-amber-500/80'}`}
           >
             لوحة المالك
           </button>

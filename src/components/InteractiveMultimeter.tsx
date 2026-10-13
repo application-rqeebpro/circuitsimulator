@@ -375,9 +375,9 @@ export const InteractiveMultimeter: React.FC<InteractiveMultimeterProps> = ({
   const dialAngle = funcAngles[selectedFunc] || 0;
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 select-none animate-in fade-in zoom-in-95 duration-200">
-      <div className={`relative bg-amber-400 border-4 border-amber-500 rounded-3xl shadow-2xl transition-all duration-300 ${
-        isMinimized ? 'w-64 p-3' : 'w-76 sm:w-80 p-4'
+    <div className="fixed bottom-3 right-2 sm:right-4 z-40 select-none animate-in fade-in zoom-in-95 duration-200 max-w-[calc(100vw-16px)]">
+      <div className={`relative bg-amber-400 border-4 border-amber-500 rounded-3xl shadow-2xl transition-all duration-300 max-w-full ${
+        isMinimized ? 'w-60 sm:w-64 p-2.5 sm:p-3' : 'w-[calc(100vw-24px)] sm:w-80 p-3 sm:p-4 max-h-[85vh] overflow-y-auto'
       }`}>
         
         {/* Top Header / Actions */}
