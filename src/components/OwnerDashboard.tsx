@@ -70,19 +70,28 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onBackToLab }) =
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [stdRes, codeRes, expRes, statsRes, setRes] = await Promise.all([
+      const [stdResult, codeResult, expResult, statsResult, setResult] = await Promise.allSettled([
         api.getStudents(),
         api.getActivationCodes(),
         api.getExperiments(),
         api.getStats(),
         api.getSettings(),
       ]);
-      setStudents(stdRes.students || []);
-      setCodes(codeRes.codes || []);
-      setExperiments(expRes.experiments || []);
-      setStats(statsRes.stats);
-      setAuditLogs(statsRes.auditLogs || []);
-      setSettings(setRes.settings);
+
+      if (stdResult.status === 'fulfilled') setStudents(stdResult.value.students || []);
+      if (codeResult.status === 'fulfilled') setCodes(codeResult.value.codes || []);
+      if (expResult.status === 'fulfilled') setExperiments(expResult.value.experiments || []);
+      if (statsResult.status === 'fulfilled') {
+        setStats(statsResult.value.stats);
+        setAuditLogs(statsResult.value.auditLogs || []);
+      }
+      if (setResult.status === 'fulfilled') setSettings(setResult.value.settings);
+
+      const failures = [stdResult, codeResult, expResult, statsResult, setResult].filter(r => r.status === 'rejected');
+      if (failures.length === 5) {
+        const firstErr = (failures[0] as PromiseRejectedResult).reason;
+        setMessage({ type: 'error', text: firstErr?.message || 'فشل تحميل بيانات لوحة التحكم' });
+      }
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'فشل تحميل بيانات لوحة التحكم' });
     } finally {

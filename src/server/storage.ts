@@ -1,7 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import pg from 'pg';
 import { EXPERIMENTS_LIST, Experiment } from '../data/experimentsData';
+import bundledDbJson from '../../data/db.json';
+
+const { Pool } = pg;
 
 export interface User {
   id: string;
@@ -90,23 +94,7 @@ export interface DatabaseSchema {
   };
 }
 
-// Determine writable directory for serverless environments (like Vercel /tmp)
-const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-const DATA_DIR = isServerless 
-  ? path.resolve('/tmp', 'circuitsimulator-data')
-  : path.resolve(process.cwd(), 'data');
-const DB_FILE = path.join(DATA_DIR, 'db.json');
-const BUNDLED_DB_FILE = path.resolve(process.cwd(), 'data', 'db.json');
-
-// Ensure data folder exists
-try {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-} catch (e) {
-  console.warn('Could not create DATA_DIR, will use in-memory fallback:', e);
-}
-
+// Phone normalization helper
 export function normalizePhone(raw: string): string {
   if (!raw) return '';
   const easternDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -133,6 +121,7 @@ export function hashPassword(password: string, salt?: string): { hash: string; s
 }
 
 export function verifyPassword(password: string, hash: string, salt: string): boolean {
+  if (!password || !hash || !salt) return false;
   const result = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha256').toString('hex');
   return result === hash;
 }
@@ -162,160 +151,296 @@ export function verifyToken(token: string): any | null {
   }
 }
 
-// Initial DB seed
-function getInitialDatabase(): DatabaseSchema {
-  const ownerPass = process.env.OWNER_PASSWORD || '@Admin_aseel780#';
-  const ownerPhone = process.env.OWNER_PHONE || '785502919';
-  const ownerHashed = hashPassword(ownerPass);
+// Writable storage directory for serverless environments (like Vercel /tmp)
+const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const DATA_DIR = isServerless 
+  ? path.resolve('/tmp', 'circuitsimulator-data')
+  : path.resolve(process.cwd(), 'data');
+const DB_FILE = path.join(DATA_DIR, 'db.json');
 
-  const studentPass = 'StudentPass123!';
-  const studentHashed = hashPassword(studentPass);
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Could not create DATA_DIR, using fallback:', e);
+}
 
-  const now = new Date();
-  const subExpires = new Date();
-  subExpires.setDate(now.getDate() + 180);
+// Global PostgreSQL Pool (if DATABASE_URL is provided in Vercel or environment)
+let pgPool: pg.Pool | null = null;
+let pgInitialized = false;
 
-  const initialOwner: User = {
-    id: 'user-owner-1',
-    fullName: 'المهندس المشرف (مالك المنصة)',
-    phone: ownerPhone,
-    university: 'الجامعة الإماراتية الدولية - صنعاء',
-    studyLevel: 'الهيئة التدريسية',
-    role: 'owner',
-    status: 'active',
-    passwordHash: ownerHashed.hash,
-    salt: ownerHashed.salt,
-    createdAt: now.toISOString(),
-  };
-
-  const demoStudent: User = {
-    id: 'user-student-demo',
-    fullName: 'أحمد محمد الكبسي',
-    phone: '771234567',
-    university: 'الجامعة الإماراتية الدولية',
-    studyLevel: 'السنة الأولى',
-    role: 'student',
-    status: 'active',
-    passwordHash: studentHashed.hash,
-    salt: studentHashed.salt,
-    createdAt: now.toISOString(),
-    subscription: {
-      status: 'active',
-      startsAt: now.toISOString(),
-      expiresAt: subExpires.toISOString(),
-      planName: 'اشتراك فصلي (180 يوم)',
-    },
-  };
-
-  const initialCodes: ActivationCode[] = [
-    {
-      id: 'code-1',
-      code: 'EIU-MECH-2026',
-      durationDays: 180,
-      planName: 'اشتراك فصلي (الجامعة الإماراتية)',
-      createdAt: now.toISOString(),
-      status: 'available',
-    },
-    {
-      id: 'code-2',
-      code: 'YEMEN-LAB-YEAR1',
-      durationDays: 365,
-      planName: 'اشتراك سنوي كامل (365 يوم)',
-      createdAt: now.toISOString(),
-      status: 'available',
-    },
-    {
-      id: 'code-3',
-      code: 'CIRCUIT-TRIAL-30',
-      durationDays: 30,
-      planName: 'اشتراك تجريبي (30 يوم)',
-      createdAt: now.toISOString(),
-      status: 'available',
-    },
-  ];
-
-  const defaultSettings: LabSettings = {
-    academyName: 'أكاديمية الميكاترونكس اليمنية',
-    labTitle: 'مختبر الدوائر الكهربائية التفاعلي',
-    requireOwnerApprovalForRegistration: true, // Requires owner approval before student can use anything
-    defaultTrialDays: 14,
-    subscriptionPlans: [
-      { id: 'plan-1', name: 'اشتراك تجريبي (14 يوم)', durationDays: 14, priceYMR: 0 },
-      { id: 'plan-2', name: 'اشتراك فصلي (180 يوم)', durationDays: 180, priceYMR: 5000 },
-      { id: 'plan-3', name: 'اشتراك سنوي (365 يوم)', durationDays: 365, priceYMR: 8000 },
-    ],
-    allowedUniversities: [
-      'الجامعة الإماراتية الدولية',
-      'جامعة العلوم الحديثة',
-      'جامعة الرشيد',
-      'جامعة العلوم والتكنولوجيا',
-      'جامعة صنعاء',
-      'جامعة آزال',
-      'جامعة أخرى',
-    ],
-    allowedLevels: [
-      'السنة الأولى',
-      'السنة الثانية',
-      'السنة الثالثة',
-      'السنة الرابعة',
-      'السنة الخامسة',
-    ],
-  };
-
-  return {
-    users: [initialOwner, demoStudent],
-    activationCodes: initialCodes,
-    experiments: EXPERIMENTS_LIST.map(e => ({ ...e, isPublished: true })),
-    savedCircuits: [],
-    quizAttempts: [],
-    auditLogs: [
-      {
-        id: 'log-1',
-        action: 'تهيئة النظام',
-        performedBy: 'النظام الآلي',
-        details: 'تمت تهيئة قاعدة البيانات وإنشاء حساب المالك الأول والرموز التجريبية بنجاح.',
-        timestamp: now.toISOString(),
-      },
-    ],
-    settings: defaultSettings,
-    stats: {
-      simulationRunsCount: 15,
-    },
-  };
+function getPgPool(): pg.Pool | null {
+  const connString = process.env.DATABASE_URL;
+  if (!connString) return null;
+  if (!pgPool) {
+    const isLocal = connString.includes('localhost') || connString.includes('127.0.0.1');
+    pgPool = new Pool({
+      connectionString: connString,
+      ssl: isLocal ? false : { rejectUnauthorized: false },
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 10000,
+      max: 5,
+    });
+    pgPool.on('error', (err) => {
+      console.warn('PostgreSQL pool error:', err?.message || err);
+    });
+  }
+  return pgPool;
 }
 
 export class Database {
   private data: DatabaseSchema;
+  private lastSyncTime = 0;
+  private isSyncing = false;
 
   constructor() {
-    this.data = this.load();
+    this.data = this.loadInitial();
+    // Eagerly initialize PostgreSQL if DATABASE_URL is set
+    if (process.env.DATABASE_URL) {
+      this.initPostgres().catch(err => {
+        console.warn('PostgreSQL eager init notice:', err?.message || err);
+      });
+    }
   }
 
-  private load(): DatabaseSchema {
+  private loadInitial(): DatabaseSchema {
+    // 1. Try reading existing file in DATA_DIR (e.g. /tmp/circuitsimulator-data/db.json)
     if (fs.existsSync(DB_FILE)) {
       try {
         const raw = fs.readFileSync(DB_FILE, 'utf8');
-        return JSON.parse(raw);
-      } catch (err) {
-        console.error('Error reading DB_FILE, trying fallback:', err);
-      }
-    }
-
-    // If running on serverless, copy initial bundled data/db.json if it exists
-    if (fs.existsSync(BUNDLED_DB_FILE)) {
-      try {
-        const raw = fs.readFileSync(BUNDLED_DB_FILE, 'utf8');
         const parsed = JSON.parse(raw);
-        this.saveDirect(parsed);
-        return parsed;
+        if (parsed && Array.isArray(parsed.users)) {
+          return this.sanitizeSchema(parsed);
+        }
       } catch (err) {
-        console.error('Error reading BUNDLED_DB_FILE, generating default:', err);
+        console.error('Error reading DB_FILE, falling back to bundled JSON:', err);
       }
     }
 
-    const initial = getInitialDatabase();
-    this.saveDirect(initial);
-    return initial;
+    // 2. Use statically bundled JSON (guaranteed present in Vercel bundle via ESM import)
+    if (bundledDbJson && Array.isArray((bundledDbJson as any).users)) {
+      const sanitized = this.sanitizeSchema(bundledDbJson as any);
+      this.saveDirect(sanitized);
+      return sanitized;
+    }
+
+    // 3. Fallback to basic structure
+    const fallback = this.createDefaultSchema();
+    this.saveDirect(fallback);
+    return fallback;
+  }
+
+  private sanitizeSchema(raw: any): DatabaseSchema {
+    return {
+      users: Array.isArray(raw?.users) ? raw.users : [],
+      activationCodes: Array.isArray(raw?.activationCodes) ? raw.activationCodes : [],
+      experiments: Array.isArray(raw?.experiments) && raw.experiments.length > 0 
+        ? raw.experiments 
+        : EXPERIMENTS_LIST.map(e => ({ ...e, isPublished: true })),
+      savedCircuits: Array.isArray(raw?.savedCircuits) ? raw.savedCircuits : [],
+      quizAttempts: Array.isArray(raw?.quizAttempts) ? raw.quizAttempts : [],
+      auditLogs: Array.isArray(raw?.auditLogs) ? raw.auditLogs : [],
+      settings: raw?.settings || this.createDefaultSchema().settings,
+      stats: {
+        simulationRunsCount: raw?.stats?.simulationRunsCount || 0,
+      },
+    };
+  }
+
+  private createDefaultSchema(): DatabaseSchema {
+    const ownerPass = process.env.OWNER_PASSWORD || '@Admin_aseel780#';
+    const ownerPhone = process.env.OWNER_PHONE || '785502919';
+    const ownerHashed = hashPassword(ownerPass);
+    const now = new Date().toISOString();
+
+    const initialOwner: User = {
+      id: 'user-owner-1',
+      fullName: 'المهندس المشرف (مالك المنصة)',
+      phone: ownerPhone,
+      university: 'الجامعة الإماراتية الدولية - صنعاء',
+      studyLevel: 'الهيئة التدريسية',
+      role: 'owner',
+      status: 'active',
+      passwordHash: ownerHashed.hash,
+      salt: ownerHashed.salt,
+      createdAt: now,
+    };
+
+    return {
+      users: [initialOwner],
+      activationCodes: [],
+      experiments: EXPERIMENTS_LIST.map(e => ({ ...e, isPublished: true })),
+      savedCircuits: [],
+      quizAttempts: [],
+      auditLogs: [
+        {
+          id: `log-${Date.now()}`,
+          action: 'تهيئة النظام',
+          performedBy: 'النظام الآلي',
+          details: 'تمت تهيئة قاعدة بيانات المختبر بنجاح',
+          timestamp: now,
+        },
+      ],
+      settings: {
+        academyName: 'أكاديمية الميكاترونكس اليمنية',
+        labTitle: 'مختبر الدوائر الكهربائية التفاعلي',
+        requireOwnerApprovalForRegistration: true,
+        defaultTrialDays: 14,
+        subscriptionPlans: [
+          { id: 'plan-1', name: 'اشتراك تجريبي (14 يوم)', durationDays: 14, priceYMR: 0 },
+          { id: 'plan-2', name: 'اشتراك فصلي (180 يوم)', durationDays: 180, priceYMR: 5000 },
+          { id: 'plan-3', name: 'اشتراك سنوي (365 يوم)', durationDays: 365, priceYMR: 8000 },
+        ],
+        allowedUniversities: [
+          'الجامعة الإماراتية الدولية',
+          'جامعة العلوم الحديثة',
+          'جامعة الرشيد',
+          'جامعة العلوم والتكنولوجيا',
+          'جامعة صنعاء',
+          'جامعة آزال',
+          'جامعة أخرى',
+        ],
+        allowedLevels: [
+          'السنة الأولى',
+          'السنة الثانية',
+          'السنة الثالثة',
+          'السنة الرابعة',
+          'السنة الخامسة',
+        ],
+      },
+      stats: {
+        simulationRunsCount: 0,
+      },
+    };
+  }
+
+  // Initialize PostgreSQL tables and migrate seed state if empty
+  public async initPostgres(): Promise<void> {
+    const pool = getPgPool();
+    if (!pool || pgInitialized) return;
+
+    try {
+      // 1. Create table for full state sync
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS platform_state (
+          key VARCHAR(50) PRIMARY KEY,
+          data JSONB NOT NULL,
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `);
+
+      // 2. Create normalized users table
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id VARCHAR(100) PRIMARY KEY,
+          full_name TEXT NOT NULL,
+          phone VARCHAR(50) NOT NULL UNIQUE,
+          university TEXT,
+          study_level TEXT,
+          role VARCHAR(20) NOT NULL,
+          status VARCHAR(20) NOT NULL,
+          password_hash TEXT NOT NULL,
+          salt TEXT NOT NULL,
+          subscription JSONB,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `);
+
+      // 3. Create normalized activation codes table
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS activation_codes (
+          id VARCHAR(100) PRIMARY KEY,
+          code VARCHAR(100) NOT NULL UNIQUE,
+          duration_days INT NOT NULL,
+          plan_name TEXT NOT NULL,
+          status VARCHAR(20) NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          expires_at TIMESTAMPTZ,
+          used_by_student_id VARCHAR(100),
+          used_by_student_name TEXT,
+          used_at TIMESTAMPTZ
+        );
+      `);
+
+      // 4. Check if platform_state has 'db_state'
+      const checkRes = await pool.query(`SELECT data FROM platform_state WHERE key = 'db_state' LIMIT 1;`);
+      if (checkRes.rows.length > 0 && checkRes.rows[0].data) {
+        // Load latest state from PostgreSQL
+        this.data = this.sanitizeSchema(checkRes.rows[0].data);
+        this.saveDirect(this.data);
+      } else {
+        // First run on new PostgreSQL database: seed with current state
+        await pool.query(
+          `INSERT INTO platform_state (key, data, updated_at) VALUES ('db_state', $1, NOW())
+           ON CONFLICT (key) DO UPDATE SET data = $1, updated_at = NOW();`,
+          [JSON.stringify(this.data)]
+        );
+
+        // Seed users into normalized table
+        for (const u of this.data.users) {
+          try {
+            await pool.query(
+              `INSERT INTO users (id, full_name, phone, university, study_level, role, status, password_hash, salt, subscription, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+               ON CONFLICT (id) DO NOTHING;`,
+              [u.id, u.fullName, u.phone, u.university, u.studyLevel, u.role, u.status, u.passwordHash, u.salt, JSON.stringify(u.subscription || {}), u.createdAt]
+            );
+          } catch (insertErr) {
+            // Ignore duplicate phone conflict on initial seed
+          }
+        }
+
+        // Seed activation codes into normalized table
+        for (const c of this.data.activationCodes) {
+          try {
+            await pool.query(
+              `INSERT INTO activation_codes (id, code, duration_days, plan_name, status, created_at, expires_at, used_by_student_id, used_by_student_name, used_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+               ON CONFLICT (id) DO NOTHING;`,
+              [c.id, c.code, c.durationDays, c.planName, c.status, c.createdAt, c.expiresAt || null, c.usedByStudentId || null, c.usedByStudentName || null, c.usedAt || null]
+            );
+          } catch (codeErr) {
+            // Ignore conflict
+          }
+        }
+      }
+
+      pgInitialized = true;
+      this.lastSyncTime = Date.now();
+      console.log('✅ PostgreSQL database connected and initialized successfully');
+    } catch (err: any) {
+      console.warn('⚠️ PostgreSQL connection failed, operating with local persistent storage:', err?.message || err);
+    }
+  }
+
+  // Sync state from PostgreSQL if running in serverless environment
+  public async sync(): Promise<void> {
+    const pool = getPgPool();
+    if (!pool) return;
+
+    if (!pgInitialized) {
+      await this.initPostgres();
+      return;
+    }
+
+    const now = Date.now();
+    // Throttle queries to once every 1000ms per serverless container
+    if (this.isSyncing || now - this.lastSyncTime < 1000) return;
+
+    this.isSyncing = true;
+    try {
+      const res = await pool.query(`SELECT data FROM platform_state WHERE key = 'db_state' LIMIT 1;`);
+      if (res.rows.length > 0 && res.rows[0].data) {
+        this.data = this.sanitizeSchema(res.rows[0].data);
+        this.saveDirect(this.data);
+        this.lastSyncTime = now;
+      }
+    } catch (err: any) {
+      console.warn('Sync notice:', err?.message || err);
+    } finally {
+      this.isSyncing = false;
+    }
   }
 
   private saveDirect(dataToSave: DatabaseSchema) {
@@ -325,12 +450,33 @@ export class Database {
       }
       fs.writeFileSync(DB_FILE, JSON.stringify(dataToSave, null, 2), 'utf8');
     } catch (err) {
-      console.warn('Storage notice (persisting in memory for serverless runtime):', err);
+      console.warn('Storage notice (persisting in memory):', err);
     }
   }
 
   public save() {
     this.saveDirect(this.data);
+    this.persistToPostgres().catch(err => {
+      console.warn('PostgreSQL async persist notice:', err?.message || err);
+    });
+  }
+
+  private async persistToPostgres(): Promise<void> {
+    const pool = getPgPool();
+    if (!pool) return;
+
+    try {
+      if (!pgInitialized) {
+        await this.initPostgres();
+      }
+      await pool.query(
+        `INSERT INTO platform_state (key, data, updated_at) VALUES ('db_state', $1, NOW())
+         ON CONFLICT (key) DO UPDATE SET data = $1, updated_at = NOW();`,
+        [JSON.stringify(this.data)]
+      );
+    } catch (err: any) {
+      console.warn('PostgreSQL persist failed:', err?.message || err);
+    }
   }
 
   public logAudit(action: string, performedBy: string, details: string) {
@@ -341,7 +487,6 @@ export class Database {
       details,
       timestamp: new Date().toISOString(),
     });
-    // Keep max 200 logs
     if (this.data.auditLogs.length > 200) {
       this.data.auditLogs.pop();
     }
@@ -410,6 +555,21 @@ export class Database {
   public addUser(user: User): User {
     this.data.users.push(user);
     this.save();
+
+    // Async insert into PostgreSQL users table
+    const pool = getPgPool();
+    if (pool) {
+      pool.query(
+        `INSERT INTO users (id, full_name, phone, university, study_level, role, status, password_hash, salt, subscription, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (id) DO UPDATE SET 
+           full_name = EXCLUDED.full_name,
+           status = EXCLUDED.status,
+           subscription = EXCLUDED.subscription;`,
+        [user.id, user.fullName, user.phone, user.university, user.studyLevel, user.role, user.status, user.passwordHash, user.salt, JSON.stringify(user.subscription || {}), user.createdAt]
+      ).catch(e => console.warn('PostgreSQL user insert error:', e?.message));
+    }
+
     return user;
   }
 
@@ -418,6 +578,16 @@ export class Database {
     if (idx === -1) return null;
     this.data.users[idx] = { ...this.data.users[idx], ...updates };
     this.save();
+
+    const pool = getPgPool();
+    if (pool) {
+      const u = this.data.users[idx];
+      pool.query(
+        `UPDATE users SET status = $1, subscription = $2 WHERE id = $3;`,
+        [u.status, JSON.stringify(u.subscription || {}), u.id]
+      ).catch(e => console.warn('PostgreSQL user update error:', e?.message));
+    }
+
     return this.data.users[idx];
   }
 
@@ -426,6 +596,10 @@ export class Database {
     this.data.users = this.data.users.filter(u => u.id !== id);
     if (this.data.users.length !== initialLen) {
       this.save();
+      const pool = getPgPool();
+      if (pool) {
+        pool.query(`DELETE FROM users WHERE id = $1;`, [id]).catch(e => console.warn('PostgreSQL delete error:', e?.message));
+      }
       return true;
     }
     return false;
@@ -439,6 +613,17 @@ export class Database {
   public addActivationCode(code: ActivationCode): ActivationCode {
     this.data.activationCodes.unshift(code);
     this.save();
+
+    const pool = getPgPool();
+    if (pool) {
+      pool.query(
+        `INSERT INTO activation_codes (id, code, duration_days, plan_name, status, created_at, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (id) DO NOTHING;`,
+        [code.id, code.code, code.durationDays, code.planName, code.status, code.createdAt, code.expiresAt || null]
+      ).catch(e => console.warn('PostgreSQL code insert error:', e?.message));
+    }
+
     return code;
   }
 
@@ -452,6 +637,16 @@ export class Database {
     if (idx === -1) return null;
     this.data.activationCodes[idx] = { ...this.data.activationCodes[idx], ...updates };
     this.save();
+
+    const pool = getPgPool();
+    if (pool) {
+      const c = this.data.activationCodes[idx];
+      pool.query(
+        `UPDATE activation_codes SET status = $1, used_by_student_id = $2, used_by_student_name = $3, used_at = $4 WHERE id = $5;`,
+        [c.status, c.usedByStudentId || null, c.usedByStudentName || null, c.usedAt || null, c.id]
+      ).catch(e => console.warn('PostgreSQL code update error:', e?.message));
+    }
+
     return this.data.activationCodes[idx];
   }
 
@@ -548,7 +743,7 @@ export class Database {
   }
 
   public getStats() {
-    const users = this.data.users;
+    const users = this.data.users || [];
     const students = users.filter(u => u.role === 'student');
     const activeStudents = students.filter(s => s.status === 'active');
     const suspendedStudents = students.filter(s => s.status === 'suspended');
@@ -560,7 +755,7 @@ export class Database {
       return new Date(s.subscription.expiresAt) > now;
     });
 
-    const codes = this.data.activationCodes;
+    const codes = this.data.activationCodes || [];
     const availableCodes = codes.filter(c => c.status === 'available');
     const usedCodes = codes.filter(c => c.status === 'used');
 
@@ -575,15 +770,15 @@ export class Database {
       availableActivationCodes: availableCodes.length,
       usedActivationCodes: usedCodes.length,
       publishedExperiments: this.getPublishedExperiments().length,
-      totalExperiments: this.data.experiments.length,
-      simulationRunsCount: this.data.stats.simulationRunsCount || 0,
-      totalSavedCircuits: this.data.savedCircuits.length,
-      totalQuizAttempts: this.data.quizAttempts.length,
+      totalExperiments: this.data.experiments?.length || 0,
+      simulationRunsCount: this.data.stats?.simulationRunsCount || 0,
+      totalSavedCircuits: this.data.savedCircuits?.length || 0,
+      totalQuizAttempts: this.data.quizAttempts?.length || 0,
     };
   }
 
   public getAuditLogs(): AuditLog[] {
-    return this.data.auditLogs;
+    return this.data.auditLogs || [];
   }
 }
 

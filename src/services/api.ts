@@ -368,199 +368,39 @@ class ApiClient {
     if (params.studyLevel) query.set('studyLevel', params.studyLevel);
     if (params.status) query.set('status', params.status);
 
-    try {
-      const res = await this.request<{ students: UserProfile[] }>(`/api/students?${query.toString()}`);
-      if (res.students && Array.isArray(res.students)) {
-        localStorage.setItem('yemen_mechatronics_students_cache', JSON.stringify(res.students));
-      }
-      return res;
-    } catch (err) {
-      console.warn('[Students Fallback] Using cached students list due to server error:', err);
-      const cached = localStorage.getItem('yemen_mechatronics_students_cache');
-      let students: UserProfile[] = [];
-      if (cached) {
-        try {
-          students = JSON.parse(cached);
-        } catch (_) {}
-      }
-      if (students.length === 0) {
-        students = [
-          {
-            id: 'user-student-demo',
-            fullName: 'أحمد محمد الكبسي',
-            phone: '771234567',
-            university: 'الجامعة الإماراتية الدولية',
-            studyLevel: 'السنة الأولى',
-            role: 'student',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            subscription: {
-              status: 'active',
-              startsAt: new Date().toISOString(),
-              expiresAt: new Date(Date.now() + 180 * 86400000).toISOString(),
-              planName: 'اشتراك فصلي (180 يوم)',
-            },
-          },
-          {
-            id: 'std-test-2',
-            fullName: 'محمد علي الحيمي',
-            phone: '779998877',
-            university: 'الجامعة الإماراتية الدولية',
-            studyLevel: 'السنة الأولى',
-            role: 'student',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            subscription: {
-              status: 'active',
-              startsAt: new Date().toISOString(),
-              expiresAt: new Date(Date.now() + 180 * 86400000).toISOString(),
-              planName: 'اشتراك فصلي معتمد',
-            },
-          },
-        ];
-      }
-      return { students };
-    }
+    return this.request<{ students: UserProfile[] }>(`/api/students?${query.toString()}`);
   }
 
   async updateStudentStatus(id: string, status: 'active' | 'suspended' | 'pending'): Promise<{ message: string; student: UserProfile }> {
-    try {
-      const res = await this.request<{ message: string; student: UserProfile }>(`/api/students/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      });
-      return res;
-    } catch (err) {
-      // Local cache update fallback
-      const cached = localStorage.getItem('yemen_mechatronics_students_cache');
-      if (cached) {
-        try {
-          const list: UserProfile[] = JSON.parse(cached);
-          const target = list.find(s => s.id === id);
-          if (target) {
-            target.status = status;
-            localStorage.setItem('yemen_mechatronics_students_cache', JSON.stringify(list));
-            return { message: 'تم تحديث حالة الطالب بنجاح', student: target };
-          }
-        } catch (_) {}
-      }
-      throw err;
-    }
+    return this.request<{ message: string; student: UserProfile }>(`/api/students/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
   }
 
   async updateStudentSubscription(id: string, body: { durationDays: number; planName?: string; status?: string }): Promise<{ message: string; student: UserProfile }> {
-    try {
-      const res = await this.request<{ message: string; student: UserProfile }>(`/api/students/${id}/subscription`, {
-        method: 'PATCH',
-        body: JSON.stringify(body),
-      });
-      return res;
-    } catch (err) {
-      const cached = localStorage.getItem('yemen_mechatronics_students_cache');
-      if (cached) {
-        try {
-          const list: UserProfile[] = JSON.parse(cached);
-          const target = list.find(s => s.id === id);
-          if (target) {
-            target.status = 'active';
-            target.subscription = {
-              status: 'active',
-              startsAt: new Date().toISOString(),
-              expiresAt: new Date(Date.now() + body.durationDays * 86400000).toISOString(),
-              planName: body.planName || 'اشتراك فصلي معتمد (180 يوم)',
-            };
-            localStorage.setItem('yemen_mechatronics_students_cache', JSON.stringify(list));
-            return { message: 'تم تفعيل وتحديث اشتراك الطالب بنجاح', student: target };
-          }
-        } catch (_) {}
-      }
-      throw err;
-    }
+    return this.request<{ message: string; student: UserProfile }>(`/api/students/${id}/subscription`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
   }
 
   async deleteStudent(id: string): Promise<{ message: string }> {
-    try {
-      return await this.request<{ message: string }>(`/api/students/${id}`, {
-        method: 'DELETE',
-      });
-    } catch (err) {
-      const cached = localStorage.getItem('yemen_mechatronics_students_cache');
-      if (cached) {
-        try {
-          const list: UserProfile[] = JSON.parse(cached);
-          const updated = list.filter(s => s.id !== id);
-          localStorage.setItem('yemen_mechatronics_students_cache', JSON.stringify(updated));
-          return { message: 'تم حذف حساب الطالب بنجاح' };
-        } catch (_) {}
-      }
-      throw err;
-    }
+    return this.request<{ message: string }>(`/api/students/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // Owner - Activation Codes
   async getActivationCodes(): Promise<{ codes: ActivationCodeItem[] }> {
-    try {
-      const res = await this.request<{ codes: ActivationCodeItem[] }>('/api/activation-codes');
-      if (res.codes && Array.isArray(res.codes)) {
-        localStorage.setItem('yemen_mechatronics_codes_cache', JSON.stringify(res.codes));
-      }
-      return res;
-    } catch (err) {
-      const cached = localStorage.getItem('yemen_mechatronics_codes_cache');
-      if (cached) {
-        try {
-          return { codes: JSON.parse(cached) };
-        } catch (_) {}
-      }
-      return {
-        codes: [
-          {
-            id: 'code-1',
-            code: 'EIU-MECH-2026',
-            durationDays: 180,
-            planName: 'اشتراك فصلي (الجامعة الإماراتية)',
-            createdAt: new Date().toISOString(),
-            status: 'available',
-          },
-          {
-            id: 'code-2',
-            code: 'YEMEN-LAB-YEAR1',
-            durationDays: 365,
-            planName: 'اشتراك سنوي كامل (365 يوم)',
-            createdAt: new Date().toISOString(),
-            status: 'available',
-          },
-        ],
-      };
-    }
+    return this.request<{ codes: ActivationCodeItem[] }>('/api/activation-codes');
   }
 
   async generateActivationCodes(body: { prefix: string; durationDays: number; planName: string; count: number }): Promise<{ message: string; codes: ActivationCodeItem[] }> {
-    try {
-      return await this.request<{ message: string; codes: ActivationCodeItem[] }>('/api/activation-codes', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-    } catch (err) {
-      const count = body.count || 1;
-      const newCodes: ActivationCodeItem[] = [];
-      for (let i = 0; i < count; i++) {
-        const rnd = Math.random().toString(36).substring(2, 7).toUpperCase();
-        newCodes.push({
-          id: `code-local-${Date.now()}-${i}`,
-          code: `${body.prefix.toUpperCase()}-${rnd}`,
-          durationDays: body.durationDays,
-          planName: body.planName,
-          createdAt: new Date().toISOString(),
-          status: 'available',
-        });
-      }
-      const cached = localStorage.getItem('yemen_mechatronics_codes_cache');
-      const existing: ActivationCodeItem[] = cached ? JSON.parse(cached) : [];
-      const updated = [...newCodes, ...existing];
-      localStorage.setItem('yemen_mechatronics_codes_cache', JSON.stringify(updated));
-      return { message: `تم توليد ${count} رمز تفعيل بنجاح`, codes: newCodes };
-    }
+    return this.request<{ message: string; codes: ActivationCodeItem[] }>('/api/activation-codes', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   }
 
   async revokeActivationCode(id: string): Promise<{ message: string; code: ActivationCodeItem }> {
@@ -641,65 +481,11 @@ class ApiClient {
 
   // Stats & Settings
   async getStats(): Promise<{ stats: LabStats; auditLogs: AuditLogItem[] }> {
-    try {
-      return await this.request<{ stats: LabStats; auditLogs: AuditLogItem[] }>('/api/stats');
-    } catch (err) {
-      console.warn('[Stats Fallback] Using offline stats fallback:', err);
-      return {
-        stats: {
-          totalUsers: 24,
-          totalStudents: 22,
-          activeStudents: 18,
-          suspendedStudents: 2,
-          pendingStudents: 2,
-          activeSubscriptions: 16,
-          totalActivationCodes: 3,
-          availableActivationCodes: 2,
-          usedActivationCodes: 1,
-          publishedExperiments: 14,
-          totalExperiments: 14,
-          simulationRunsCount: 168,
-          totalSavedCircuits: 42,
-          totalQuizAttempts: 35,
-        },
-        auditLogs: [
-          {
-            id: 'log-default',
-            action: 'حالة النظام',
-            performedBy: 'النظام الأكاديمي',
-            details: 'النظام متصل وبانتظار طلبات الطلاب والمعامل التفاعلية.',
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      };
-    }
+    return this.request<{ stats: LabStats; auditLogs: AuditLogItem[] }>('/api/stats');
   }
 
   async getSettings(): Promise<{ settings: any }> {
-    try {
-      return await this.request<{ settings: any }>('/api/settings');
-    } catch (err) {
-      return {
-        settings: {
-          academyName: 'أكاديمية الميكاترونكس اليمنية',
-          labTitle: 'مختبر الدوائر الكهربائية التفاعلي',
-          requireOwnerApprovalForRegistration: true,
-          defaultTrialDays: 14,
-          subscriptionPlans: [
-            { id: 'plan-1', name: 'اشتراك تجريبي (14 يوم)', durationDays: 14, priceYMR: 0 },
-            { id: 'plan-2', name: 'اشتراك فصلي (180 يوم)', durationDays: 180, priceYMR: 5000 },
-            { id: 'plan-3', name: 'اشتراك سنوي (365 يوم)', durationDays: 365, priceYMR: 8000 },
-          ],
-          allowedUniversities: [
-            'الجامعة الإماراتية الدولية',
-            'جامعة العلوم والتكنولوجيا',
-            'جامعة صنعاء',
-            'جامعة أخرى',
-          ],
-          allowedLevels: ['السنة الأولى', 'السنة الثانية', 'السنة الثالثة', 'السنة الرابعة', 'السنة الخامسة'],
-        },
-      };
-    }
+    return this.request<{ settings: any }>('/api/settings');
   }
 
   async updateSettings(settings: any): Promise<{ message: string; settings: any }> {
